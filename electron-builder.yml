@@ -1,0 +1,32 @@
+appId: com.terma.app
+productName: Terma
+copyright: Copyright © 2026
+
+directories:
+  output: release
+  buildResources: build
+
+# Fichiers embarqués dans l'app packagée
+files:
+  - dist/**/*
+  - electron/**/*
+  - package.json
+
+# node-pty est un module natif (.node) : il DOIT être sorti de l'asar
+# sinon Electron ne peut pas le charger au runtime.
+asarUnpack:
+  - "**/node_modules/node-pty/**"
+
+win:
+  target:
+    - target: nsis
+      arch:
+        - x64
+  # icon: build/icon.ico   # à fournir plus tard (Phase 7)
+
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
