@@ -1,15 +1,14 @@
 {
   "name": "terma",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Terma — émulateur de terminal moderne (Electron + React + xterm.js)",
   "author": "",
   "license": "MIT",
   "main": "electron/main.js",
   "scripts": {
-    "dev": "concurrently -k -n VITE,ELECTRON -c cyan,magenta \"npm:dev:renderer\" \"npm:dev:electron\"",
+    "dev": "node scripts/dev.js",
     "dev:renderer": "vite",
-    "dev:electron": "wait-on tcp:127.0.0.1:5173 && node electron/launch-dev.js",
     "build": "vite build",
     "rebuild": "electron-rebuild -f -w node-pty",
     "dist": "npm run build && electron-builder",
