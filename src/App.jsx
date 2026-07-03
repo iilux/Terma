@@ -39,6 +39,8 @@ const DEFAULT_SETTINGS = {
   fontSize: 14,
   cursorStyle: 'bar',
   cursorBlink: true,
+  backgroundImage: null, // chemin de l'image de fond (optionnelle)
+  backgroundBlur: 8, // flou en px (0 = net)
 };
 
 /** Dernier segment d'un chemin (pour le titre d'onglet). */
@@ -105,6 +107,8 @@ export default function App() {
   const [renamingId, setRenamingId] = useState(null);
   const [previewTheme, setPreviewTheme] = useState(null);
   const [toast, setToast] = useState(null);
+  // data URL de l'image de fond (relue depuis son chemin à chaque lancement)
+  const [bgImageUrl, setBgImageUrl] = useState(null);
 
   const {
     themes,
@@ -165,6 +169,13 @@ export default function App() {
 
       const mergedSettings = { ...DEFAULT_SETTINGS, ...(saved?.settings || {}) };
       setSettings(mergedSettings);
+
+      // image de fond : relue depuis son chemin (null si le fichier a disparu)
+      if (mergedSettings.backgroundImage && window.terma?.background) {
+        window.terma.background.load(mergedSettings.backgroundImage).then((url) => {
+          if (!cancelled && url) setBgImageUrl(url);
+        });
+      }
 
       const canRestore =
         saved && Array.isArray(saved.tabs) && saved.tabs.length > 0 && mergedSettings.restoreSession;
@@ -339,6 +350,23 @@ export default function App() {
     await clear();
     setSettingsOpen(false);
   }, [clear]);
+
+  /* ------------------------- image d'arrière-plan ------------------------- */
+  const handlePickBackground = useCallback(async () => {
+    const res = await window.terma?.background.pick();
+    if (!res || res.canceled) return;
+    if (res.error || !res.dataUrl) {
+      showToast(res?.error || "Impossible de charger l'image.");
+      return;
+    }
+    setBgImageUrl(res.dataUrl);
+    setSettings((s) => ({ ...s, backgroundImage: res.path }));
+  }, [showToast]);
+
+  const handleClearBackground = useCallback(() => {
+    setBgImageUrl(null);
+    setSettings((s) => ({ ...s, backgroundImage: null }));
+  }, []);
 
   /* -------------------------- raccourcis clavier -------------------------- */
   useEffect(() => {
@@ -576,8 +604,25 @@ export default function App() {
     cursorBlink: settings.cursorBlink,
   };
 
+  // Image active : le fond d'xterm devient transparent pour laisser voir
+  // l'image (la lisibilité est assurée par le voile teinté en CSS, .has-bg).
+  const hasBgImage = !!bgImageUrl;
+  const effectiveTermTheme = hasBgImage
+    ? { ...termTheme, background: '#00000000' }
+    : termTheme;
+
   return (
-    <div className="app">
+    <div
+      className={'app' + (hasBgImage ? ' has-bg' : '')}
+      style={hasBgImage ? { '--bg-blur': `${settings.backgroundBlur || 0}px` } : undefined}
+    >
+      {hasBgImage && (
+        <div
+          className="app-bg"
+          style={{ backgroundImage: `url("${bgImageUrl}")` }}
+          aria-hidden="true"
+        />
+      )}
       <TitleBar
         isMaximized={isMaximized}
         onMinimize={() => window.terma?.window.minimize()}
@@ -611,7 +656,7 @@ export default function App() {
             tab={tab}
             visible={tab.id === activeId}
             termSettings={termSettings}
-            termTheme={termTheme}
+            termTheme={effectiveTermTheme}
             onCwd={(paneId, cwd) => handleCwd(tab.id, paneId, cwd)}
             onContextMenu={openTerminalMenu}
             onFocusPane={handleFocusPane}
@@ -640,6 +685,8 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           onClearSession={handleClearSession}
+          onPickBackground={handlePickBackground}
+          onClearBackground={handleClearBackground}
           onOpenThemes={() => {
             setSettingsOpen(false);
             setThemesOpen(true);

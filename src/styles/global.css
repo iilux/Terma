@@ -91,11 +91,54 @@ button:focus {
 }
 
 .app {
+  position: relative;
   display: flex;
   flex-direction: column;
   height: 100vh;
   overflow: hidden;
   background: var(--bg);
+}
+
+/* ======================= Image d'arrière-plan ============================ */
+/* Calque plein écran sous l'UI. Débordement négatif = le flou n'a pas de
+   bords « délavés » (le surplus est clippé par .app, overflow: hidden). */
+.app-bg {
+  position: absolute;
+  inset: calc(var(--bg-blur, 0px) * -2 - 2px);
+  z-index: 0;
+  background-size: cover;
+  background-position: center;
+  filter: blur(var(--bg-blur, 0px));
+  pointer-events: none;
+}
+
+/* Quand une image est active : l'UI passe au-dessus du calque et les fonds
+   opaques deviennent des voiles teintés (lisibilité du texte préservée). */
+.app.has-bg .titlebar,
+.app.has-bg .terminal-stack {
+  position: relative;
+  z-index: 1;
+}
+.app.has-bg {
+  background: var(--bg); /* visible uniquement le temps du chargement */
+}
+.app.has-bg .titlebar {
+  background: color-mix(in srgb, var(--titlebar) 78%, transparent);
+}
+.app.has-bg .terminal-stack {
+  background: color-mix(in srgb, var(--bg) 52%, transparent);
+}
+.app.has-bg .empty-stack {
+  background: transparent;
+}
+.app.has-bg .tab.active {
+  background: color-mix(in srgb, var(--bg) 65%, transparent);
+}
+/* xterm.css impose un fond noir opaque à ce calque legacy ; le vrai fond du
+   terminal (transparent quand une image est active) est peint par
+   .xterm-scrollable-element + le canvas. */
+.app.has-bg .xterm-viewport {
+  background-color: transparent;
 }
 
 /* ============================= Title bar ================================== */
@@ -609,6 +652,61 @@ body.pane-resizing .xterm {
   font-size: 11px;
   text-align: center;
   color: var(--text-faint);
+}
+
+/* Ligne « image de fond choisie » : nom du fichier + bouton retirer */
+.settings-bg-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-top: 8px;
+  padding: 0 2px;
+}
+.settings-bg-name {
+  min-width: 0;
+  font-size: 11.5px;
+  color: var(--text-dim);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Slider (flou de l'image de fond) */
+.slider-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+input[type='range'].slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 110px;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--border);
+  outline: none;
+  cursor: pointer;
+}
+input[type='range'].slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  background: var(--accent);
+  cursor: pointer;
+  transition: transform 0.12s ease;
+}
+input[type='range'].slider::-webkit-slider-thumb:hover {
+  transform: scale(1.15);
+}
+.slider-value {
+  width: 34px;
+  flex: none;
+  text-align: right;
+  font-size: 11px;
+  color: var(--text-faint);
+  font-variant-numeric: tabular-nums;
 }
 
 /* Toggle switch */
