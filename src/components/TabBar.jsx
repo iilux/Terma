@@ -9,11 +9,15 @@ import Tab from './Tab.jsx';
 export default function TabBar({
   tabs,
   activeId,
+  renamingId,
   onActivate,
   onClose,
   onNewTab,
   onMoveTab,
   onTabContextMenu,
+  onStartRename,
+  onCommitRename,
+  onCancelRename,
 }) {
   const [dragId, setDragId] = useState(null);
   const dragIdRef = useRef(null);
@@ -52,9 +56,13 @@ export default function TabBar({
             tab={tab}
             active={tab.id === activeId}
             dragging={tab.id === dragId}
+            renaming={tab.id === renamingId}
             onActivate={onActivate}
             onClose={onClose}
             onContextMenu={onTabContextMenu}
+            onStartRename={onStartRename}
+            onCommitRename={onCommitRename}
+            onCancelRename={onCancelRename}
             onDragStart={handleDragStart}
             onDragOver={handleDragOver}
             onDragEnd={handleDragEnd}

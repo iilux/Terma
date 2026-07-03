@@ -7,18 +7,34 @@ import {
   Eraser,
   XCircle,
   X,
+  Palette,
+  Search,
+  Settings,
+  Download,
+  Upload,
+  Pencil,
+  Columns2,
+  Rows2,
+  SquareStack,
 } from 'lucide-react';
 
 import TitleBar from './components/TitleBar.jsx';
 import TabBar from './components/TabBar.jsx';
-import TerminalView from './components/TerminalView.jsx';
+import PaneArea from './components/PaneArea.jsx';
 import ContextMenu from './components/ContextMenu.jsx';
 import SettingsPopover from './components/SettingsPopover.jsx';
+import ThemesPanel from './components/ThemesPanel.jsx';
+import SearchBar from './components/SearchBar.jsx';
 import { useTabs, newId } from './hooks/useTabs.js';
 import { useSession } from './hooks/useSession.js';
+import { deserializeNode, leavesOf, makeLeaf, findLeaf } from './hooks/paneTree.js';
+import { useThemes } from './themes/useThemes.js';
+import { normalizeTheme } from './themes/themeHost.js';
+import { DEFAULT_THEME } from './themes/builtins.js';
 
 const DEFAULT_SETTINGS = {
   restoreSession: true,
+  themeId: DEFAULT_THEME.id,
   fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace",
   fontSize: 14,
   cursorStyle: 'bar',
@@ -34,6 +50,27 @@ function baseName(p) {
   return last || cleaned || null;
 }
 
+/** Onglet vivant depuis une sauvegarde (session.json v1/v2 ou .termasession). */
+function tabFromSaved(saved, version) {
+  const layout =
+    version >= 2
+      ? deserializeNode(saved.layout)
+      : deserializeNode({
+          type: 'leaf',
+          cwd: saved.cwd,
+          scrollback: saved.scrollback,
+          history: saved.history,
+        });
+  const finalLayout = layout || makeLeaf({});
+  return {
+    id: newId(),
+    title: saved.title || 'Terminal',
+    customTitle: !!saved.customTitle,
+    layout: finalLayout,
+    activePaneId: leavesOf(finalLayout)[0].paneId,
+  };
+}
+
 export default function App() {
   const {
     tabs,
@@ -42,8 +79,13 @@ export default function App() {
     setTabs,
     openTab,
     closeTab,
-    setTitle,
-    setCwd,
+    setAutoTitle,
+    renameTab,
+    splitPane,
+    closePane,
+    setActivePane,
+    setPaneCwd,
+    setPaneRatio,
     moveTab,
     goToIndex,
     nextTab,
@@ -51,13 +93,29 @@ export default function App() {
   } = useTabs();
 
   const handlesRef = useRef(new Map());
-  const { save, saveDebounced, load, clear } = useSession(handlesRef);
+  const { save, saveDebounced, load, clear, exportTab, importTab } = useSession(handlesRef);
 
   const [settings, setSettings] = useState(DEFAULT_SETTINGS);
   const [isMaximized, setIsMaximized] = useState(false);
   const [booted, setBooted] = useState(false);
-  const [menu, setMenu] = useState(null); // { kind:'terminal'|'tab', x, y, targetId }
+  const [menu, setMenu] = useState(null); // { kind:'terminal'|'tab'|'app', x, y, targetId?, paneId? }
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [themesOpen, setThemesOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [renamingId, setRenamingId] = useState(null);
+  const [previewTheme, setPreviewTheme] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const {
+    themes,
+    activeTheme,
+    termTheme,
+    importTheme,
+    saveCustomTheme,
+    deleteTheme,
+    exportTheme,
+    openThemesFolder,
+  } = useThemes(settings.themeId, previewTheme);
 
   // refs « toujours à jour » pour les handlers globaux et beforeunload
   const tabsRef = useRef(tabs);
@@ -73,6 +131,21 @@ export default function App() {
   const unregisterHandle = useCallback((id) => {
     handlesRef.current.delete(id);
   }, []);
+
+  const activeTab = tabs.find((t) => t.id === activeId) || null;
+
+  /** Handle xterm du panneau actif de l'onglet actif (via refs, safe partout). */
+  const activeHandle = useCallback(() => {
+    const tab = tabsRef.current.find((t) => t.id === activeIdRef.current);
+    return tab ? handlesRef.current.get(tab.activePaneId) : null;
+  }, []);
+
+  const showToast = useCallback((text) => setToast(text), []);
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 4000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   /* ----------------------------- démarrage ------------------------------- */
   useEffect(() => {
@@ -97,18 +170,12 @@ export default function App() {
         saved && Array.isArray(saved.tabs) && saved.tabs.length > 0 && mergedSettings.restoreSession;
 
       if (canRestore) {
-        const restored = saved.tabs.map((t) => ({
-          id: t.id || newId(),
-          title: t.title || 'Terminal',
-          cwd: t.cwd || null,
-          restore: {
-            scrollback: t.scrollback || '',
-            history: Array.isArray(t.history) ? t.history : [],
-          },
-        }));
+        const version = Number(saved.version) || 1;
+        const restored = saved.tabs.map((t) => tabFromSaved(t, version));
         setTabs(restored);
-        const activeExists = restored.some((t) => t.id === saved.activeId);
-        setActiveId(activeExists ? saved.activeId : restored[0].id);
+        // les ids sont régénérés : on retrouve l'onglet actif par son index
+        const idx = saved.tabs.findIndex((t) => t.id === saved.activeId);
+        setActiveId(restored[idx >= 0 ? idx : 0].id);
       } else {
         openTab();
       }
@@ -156,6 +223,123 @@ export default function App() {
     };
   }, [booted, save]);
 
+  /* ------------------------------ handlers -------------------------------- */
+
+  const handleCwd = useCallback(
+    (tabId, paneId, cwd) => {
+      setPaneCwd(tabId, paneId, cwd);
+      // le titre suit le dossier courant du panneau actif (sauf renommage manuel)
+      const tab = tabsRef.current.find((t) => t.id === tabId);
+      if (tab && tab.activePaneId === paneId) {
+        const name = baseName(cwd);
+        if (name) setAutoTitle(tabId, name);
+      }
+    },
+    [setPaneCwd, setAutoTitle]
+  );
+
+  const handleFocusPane = useCallback(
+    (tabId, paneId) => {
+      setActivePane(tabId, paneId);
+      const tab = tabsRef.current.find((t) => t.id === tabId);
+      const leaf = tab ? findLeaf(tab.layout, paneId) : null;
+      const name = baseName(leaf?.cwd);
+      if (name) setAutoTitle(tabId, name);
+    },
+    [setActivePane, setAutoTitle]
+  );
+
+  const handleNewTab = useCallback(() => openTab(), [openTab]);
+
+  /** Nouvel onglet dans le même dossier que le panneau actif de `tabId`. */
+  const duplicateTab = useCallback(
+    (tabId) => {
+      const tab = tabsRef.current.find((t) => t.id === tabId);
+      const leaf = tab ? findLeaf(tab.layout, tab.activePaneId) : null;
+      openTab({ cwd: leaf?.cwd || null });
+    },
+    [openTab]
+  );
+
+  const closeOthers = useCallback(
+    (id) => {
+      setTabs((prev) => prev.filter((t) => t.id === id));
+      setActiveId(id);
+    },
+    [setTabs, setActiveId]
+  );
+
+  const splitActive = useCallback(
+    (dir) => {
+      const tab = tabsRef.current.find((t) => t.id === activeIdRef.current);
+      if (tab) splitPane(tab.id, tab.activePaneId, dir);
+    },
+    [splitPane]
+  );
+
+  /** Ctrl+W : ferme le panneau actif (l'onglet entier s'il n'est pas divisé). */
+  const closeActivePane = useCallback(() => {
+    const tab = tabsRef.current.find((t) => t.id === activeIdRef.current);
+    if (tab) closePane(tab.id, tab.activePaneId);
+  }, [closePane]);
+
+  const handleExportTab = useCallback(
+    async (tabId) => {
+      const tab = tabsRef.current.find((t) => t.id === tabId);
+      if (!tab) return;
+      const ok = await exportTab(tab);
+      if (ok) showToast('Session exportée.');
+    },
+    [exportTab, showToast]
+  );
+
+  const handleImportTab = useCallback(async () => {
+    const res = await importTab();
+    if (!res || res.canceled) return;
+    if (res.error || res.data?.format !== 'terma-session' || !res.data.tab) {
+      showToast(res?.error || 'Ce fichier n’est pas une session Terma valide.');
+      return;
+    }
+    const tab = tabFromSaved(res.data.tab, Number(res.data.version) || 2);
+    openTab({
+      id: tab.id,
+      title: tab.title,
+      customTitle: tab.customTitle,
+      layout: tab.layout,
+    });
+  }, [importTab, openTab, showToast]);
+
+  const handleSearchClose = useCallback(() => {
+    setSearchOpen(false);
+    const h = activeHandle();
+    h?.clearSearch();
+    h?.focus();
+  }, [activeHandle]);
+
+  const handlePreviewTheme = useCallback((draft) => {
+    if (!draft) {
+      setPreviewTheme(null);
+      return;
+    }
+    const res = normalizeTheme(draft, {});
+    setPreviewTheme(res.ok ? res.theme : null);
+  }, []);
+
+  const handleDeleteTheme = useCallback(
+    async (theme) => {
+      await deleteTheme(theme);
+      if (settingsRef.current.themeId === theme.id) {
+        setSettings((s) => ({ ...s, themeId: DEFAULT_THEME.id }));
+      }
+    },
+    [deleteTheme]
+  );
+
+  const handleClearSession = useCallback(async () => {
+    await clear();
+    setSettingsOpen(false);
+  }, [clear]);
+
   /* -------------------------- raccourcis clavier -------------------------- */
   useEffect(() => {
     const onKey = (e) => {
@@ -165,9 +349,21 @@ export default function App() {
       if (!e.shiftKey && k === 't') {
         e.preventDefault();
         openTab();
+      } else if (!e.shiftKey && k === 'w') {
+        e.preventDefault();
+        closeActivePane();
       } else if (e.shiftKey && k === 'w') {
         e.preventDefault();
         if (activeIdRef.current) closeTab(activeIdRef.current);
+      } else if (e.shiftKey && k === 'd') {
+        e.preventDefault();
+        splitActive('row');
+      } else if (e.shiftKey && k === 'b') {
+        e.preventDefault();
+        splitActive('col');
+      } else if (e.shiftKey && k === 'f') {
+        e.preventDefault();
+        setSearchOpen((v) => !v);
       } else if (k === 'tab') {
         e.preventDefault();
         if (e.shiftKey) prevTab();
@@ -181,48 +377,96 @@ export default function App() {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [openTab, closeTab, nextTab, prevTab, goToIndex]);
+  }, [openTab, closeTab, closeActivePane, splitActive, nextTab, prevTab, goToIndex]);
 
-  /* ------------------------------ handlers -------------------------------- */
-  const handleCwd = useCallback(
-    (id, cwd) => {
-      setCwd(id, cwd);
-      const name = baseName(cwd);
-      if (name) setTitle(id, name);
-    },
-    [setCwd, setTitle]
-  );
+  // fermeture de la recherche : nettoyer le surlignage si on ferme via Ctrl+Shift+F
+  useEffect(() => {
+    if (!searchOpen) activeHandle()?.clearSearch();
+  }, [searchOpen, activeHandle]);
 
-  const handleNewTab = useCallback(() => openTab(), [openTab]);
+  /* ------------------------------- menus ---------------------------------- */
 
-  const closeOthers = useCallback(
-    (id) => {
-      setTabs((prev) => prev.filter((t) => t.id === id));
-      setActiveId(id);
-    },
-    [setTabs, setActiveId]
-  );
-
-  const openTerminalMenu = useCallback(({ x, y, id }) => {
-    setMenu({ kind: 'terminal', x, y, targetId: id });
+  const openTerminalMenu = useCallback(({ x, y, paneId }) => {
+    setMenu({ kind: 'terminal', x, y, paneId });
   }, []);
 
   const openTabMenu = useCallback((e, id) => {
     setMenu({ kind: 'tab', x: e.clientX, y: e.clientY, targetId: id });
   }, []);
 
+  const openAppMenu = useCallback(({ x, y }) => {
+    setMenu({ kind: 'app', x, y });
+  }, []);
+
   const closeMenu = useCallback(() => setMenu(null), []);
 
-  const handleClearSession = useCallback(async () => {
-    await clear();
-    setSettingsOpen(false);
-  }, [clear]);
-
-  /* --------------------------- items de menu ------------------------------ */
   const menuItems = (() => {
     if (!menu) return [];
+
+    if (menu.kind === 'app') {
+      return [
+        {
+          label: 'Nouvel onglet',
+          shortcut: 'Ctrl+T',
+          icon: <Plus size={14} strokeWidth={1.5} />,
+          onClick: () => openTab(),
+        },
+        {
+          label: "Dupliquer l'onglet",
+          icon: <SquareStack size={14} strokeWidth={1.5} />,
+          disabled: !activeTab,
+          onClick: () => activeTab && duplicateTab(activeTab.id),
+        },
+        { separator: true },
+        {
+          label: 'Diviser à droite',
+          shortcut: 'Ctrl+Shift+D',
+          icon: <Columns2 size={14} strokeWidth={1.5} />,
+          onClick: () => splitActive('row'),
+        },
+        {
+          label: 'Diviser en bas',
+          shortcut: 'Ctrl+Shift+B',
+          icon: <Rows2 size={14} strokeWidth={1.5} />,
+          onClick: () => splitActive('col'),
+        },
+        { separator: true },
+        {
+          label: 'Rechercher',
+          shortcut: 'Ctrl+Shift+F',
+          icon: <Search size={14} strokeWidth={1.5} />,
+          onClick: () => setSearchOpen(true),
+        },
+        { separator: true },
+        {
+          label: 'Thèmes…',
+          icon: <Palette size={14} strokeWidth={1.5} />,
+          onClick: () => setThemesOpen(true),
+        },
+        {
+          label: 'Importer une session…',
+          icon: <Download size={14} strokeWidth={1.5} />,
+          onClick: () => handleImportTab(),
+        },
+        {
+          label: "Exporter la session de l'onglet…",
+          icon: <Upload size={14} strokeWidth={1.5} />,
+          disabled: !activeTab,
+          onClick: () => activeTab && handleExportTab(activeTab.id),
+        },
+        { separator: true },
+        {
+          label: 'Paramètres',
+          icon: <Settings size={14} strokeWidth={1.5} />,
+          onClick: () => setSettingsOpen(true),
+        },
+      ];
+    }
+
     if (menu.kind === 'terminal') {
-      const h = handlesRef.current.get(menu.targetId);
+      const h = handlesRef.current.get(menu.paneId);
+      const tab = tabs.find((t) => leavesOf(t.layout).some((l) => l.paneId === menu.paneId));
+      const isSplit = tab ? leavesOf(tab.layout).length > 1 : false;
       return [
         {
           label: 'Copier',
@@ -249,6 +493,34 @@ export default function App() {
         },
         { separator: true },
         {
+          label: 'Diviser à droite',
+          shortcut: 'Ctrl+Shift+D',
+          icon: <Columns2 size={14} strokeWidth={1.5} />,
+          disabled: !tab,
+          onClick: () => tab && splitPane(tab.id, menu.paneId, 'row'),
+        },
+        {
+          label: 'Diviser en bas',
+          shortcut: 'Ctrl+Shift+B',
+          icon: <Rows2 size={14} strokeWidth={1.5} />,
+          disabled: !tab,
+          onClick: () => tab && splitPane(tab.id, menu.paneId, 'col'),
+        },
+        {
+          label: isSplit ? 'Fermer le panneau' : "Fermer l'onglet",
+          shortcut: 'Ctrl+W',
+          icon: <X size={14} strokeWidth={1.5} />,
+          disabled: !tab,
+          onClick: () => tab && closePane(tab.id, menu.paneId),
+        },
+        { separator: true },
+        {
+          label: 'Rechercher',
+          shortcut: 'Ctrl+Shift+F',
+          icon: <Search size={14} strokeWidth={1.5} />,
+          onClick: () => setSearchOpen(true),
+        },
+        {
           label: 'Nouvel onglet',
           shortcut: 'Ctrl+T',
           icon: <Plus size={14} strokeWidth={1.5} />,
@@ -256,6 +528,7 @@ export default function App() {
         },
       ];
     }
+
     // menu d'onglet
     return [
       {
@@ -263,6 +536,22 @@ export default function App() {
         shortcut: 'Ctrl+T',
         icon: <Plus size={14} strokeWidth={1.5} />,
         onClick: () => openTab(),
+      },
+      {
+        label: 'Dupliquer',
+        icon: <SquareStack size={14} strokeWidth={1.5} />,
+        onClick: () => duplicateTab(menu.targetId),
+      },
+      {
+        label: 'Renommer',
+        icon: <Pencil size={14} strokeWidth={1.5} />,
+        onClick: () => setRenamingId(menu.targetId),
+      },
+      { separator: true },
+      {
+        label: 'Exporter la session…',
+        icon: <Upload size={14} strokeWidth={1.5} />,
+        onClick: () => handleExportTab(menu.targetId),
       },
       { separator: true },
       {
@@ -295,34 +584,51 @@ export default function App() {
         onToggleMaximize={() => window.terma?.window.toggleMaximize()}
         onClose={() => window.terma?.window.close()}
         onOpenSettings={() => setSettingsOpen(true)}
+        onOpenAppMenu={openAppMenu}
       >
         <TabBar
           tabs={tabs}
           activeId={activeId}
+          renamingId={renamingId}
           onActivate={setActiveId}
           onClose={closeTab}
           onNewTab={handleNewTab}
           onMoveTab={moveTab}
           onTabContextMenu={openTabMenu}
+          onStartRename={setRenamingId}
+          onCommitRename={(id, value) => {
+            renameTab(id, value);
+            setRenamingId(null);
+          }}
+          onCancelRename={() => setRenamingId(null)}
         />
       </TitleBar>
 
       <div className="terminal-stack">
         {tabs.map((tab) => (
-          <TerminalView
+          <PaneArea
             key={tab.id}
-            id={tab.id}
-            active={tab.id === activeId}
-            initialCwd={tab.cwd}
-            restore={tab.restore}
-            settings={termSettings}
-            onCwd={handleCwd}
+            tab={tab}
+            visible={tab.id === activeId}
+            termSettings={termSettings}
+            termTheme={termTheme}
+            onCwd={(paneId, cwd) => handleCwd(tab.id, paneId, cwd)}
             onContextMenu={openTerminalMenu}
+            onFocusPane={handleFocusPane}
+            onRatioChange={setPaneRatio}
             registerHandle={registerHandle}
             unregisterHandle={unregisterHandle}
           />
         ))}
         {tabs.length === 0 && <div className="empty-stack" />}
+
+        {searchOpen && (
+          <SearchBar
+            onFindNext={(q) => activeHandle()?.findNext(q)}
+            onFindPrevious={(q) => activeHandle()?.findPrevious(q)}
+            onClose={handleSearchClose}
+          />
+        )}
       </div>
 
       {menu && (
@@ -334,9 +640,33 @@ export default function App() {
           settings={settings}
           onChange={setSettings}
           onClearSession={handleClearSession}
+          onOpenThemes={() => {
+            setSettingsOpen(false);
+            setThemesOpen(true);
+          }}
           onClose={() => setSettingsOpen(false)}
         />
       )}
+
+      {themesOpen && (
+        <ThemesPanel
+          themes={themes}
+          activeTheme={activeTheme}
+          onSelect={(id) => setSettings((s) => ({ ...s, themeId: id }))}
+          onImport={importTheme}
+          onDelete={handleDeleteTheme}
+          onExport={exportTheme}
+          onSaveCustom={saveCustomTheme}
+          onOpenFolder={openThemesFolder}
+          onPreview={handlePreviewTheme}
+          onClose={() => {
+            setPreviewTheme(null);
+            setThemesOpen(false);
+          }}
+        />
+      )}
+
+      {toast && <div className="toast">{toast}</div>}
     </div>
   );
 }

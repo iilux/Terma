@@ -41,6 +41,19 @@ contextBridge.exposeInMainWorld('terma', {
     load: () => ipcRenderer.invoke('session:load'),
     save: (data) => ipcRenderer.invoke('session:save', data),
     clear: () => ipcRenderer.invoke('session:clear'),
+    // export/import d'un onglet en fichier .termasession (dialogues OS)
+    exportTab: (payload, suggestedName) =>
+      ipcRenderer.invoke('session:exportTab', { payload, suggestedName }),
+    importTab: () => ipcRenderer.invoke('session:importTab'),
+  },
+
+  themes: {
+    list: () => ipcRenderer.invoke('themes:list'),
+    save: (fileName, data) => ipcRenderer.invoke('themes:save', { fileName, data }),
+    delete: (fileName) => ipcRenderer.invoke('themes:delete', { fileName }),
+    import: () => ipcRenderer.invoke('themes:import'),
+    export: (fileName, data) => ipcRenderer.invoke('themes:export', { fileName, data }),
+    openFolder: () => ipcRenderer.send('themes:openFolder'),
   },
 
   clipboard: {

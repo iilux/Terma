@@ -1,12 +1,18 @@
 import React, { useEffect } from 'react';
-import { X, RotateCcw, Trash2 } from 'lucide-react';
+import { X, RotateCcw, Trash2, Palette } from 'lucide-react';
 
 /**
  * Réglages essentiels de la session (le panneau complet arrive en Phase 6).
- * Pour l'instant : (dé)activer la restauration de session + effacer la session
- * enregistrée. Le réglage est persisté dans session.json.
+ * Pour l'instant : thèmes, (dé)activer la restauration de session + effacer
+ * la session enregistrée. Les réglages sont persistés dans session.json.
  */
-export default function SettingsPopover({ settings, onChange, onClearSession, onClose }) {
+export default function SettingsPopover({
+  settings,
+  onChange,
+  onClearSession,
+  onOpenThemes,
+  onClose,
+}) {
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose();
@@ -22,6 +28,14 @@ export default function SettingsPopover({ settings, onChange, onClearSession, on
           <span className="settings-title">Paramètres</span>
           <button className="icon-btn" onClick={onClose} aria-label="Fermer">
             <X size={15} strokeWidth={1.5} />
+          </button>
+        </div>
+
+        <div className="settings-section">
+          <div className="settings-section-label">Apparence</div>
+          <button className="settings-action" onClick={onOpenThemes}>
+            <Palette size={14} strokeWidth={1.5} />
+            Gérer les thèmes…
           </button>
         </div>
 
@@ -51,7 +65,7 @@ export default function SettingsPopover({ settings, onChange, onClearSession, on
           </button>
         </div>
 
-        <div className="settings-footer">Terma — v0.1.0</div>
+        <div className="settings-footer">Terma — v0.2.0</div>
       </div>
     </div>
   );
