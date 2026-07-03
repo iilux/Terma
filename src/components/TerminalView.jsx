@@ -63,6 +63,7 @@ export default function TerminalView({
       cursorStyle: settings.cursorStyle || 'bar',
       scrollback: 5000,
       allowProposedApi: true,
+      allowTransparency: true, // fond xterm transparent quand une image de fond est active
       theme: termTheme,
       macOptionIsMeta: false,
     });

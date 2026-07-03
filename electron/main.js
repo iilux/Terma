@@ -272,6 +272,52 @@ ipcMain.on('themes:openFolder', () => {
   shell.openPath(themesDir());
 });
 
+/* --------------------------- IPC : fond d'écran -------------------------- */
+// L'image choisie reste chez l'utilisateur : on stocke son CHEMIN dans les
+// réglages et on la relit à chaque lancement, convertie en data URL (le
+// renderer n'a pas accès au filesystem). Extension whitelistée + taille bornée.
+const BG_IMAGE_MIMES = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.webp': 'image/webp',
+  '.gif': 'image/gif',
+  '.bmp': 'image/bmp',
+  '.avif': 'image/avif',
+};
+const BG_IMAGE_MAX_BYTES = 25 * 1024 * 1024;
+
+function readImageAsDataUrl(filePath) {
+  const mime = BG_IMAGE_MIMES[path.extname(String(filePath)).toLowerCase()];
+  if (!mime) return null;
+  try {
+    const stat = fs.statSync(filePath);
+    if (!stat.isFile() || stat.size > BG_IMAGE_MAX_BYTES) return null;
+    return `data:${mime};base64,${fs.readFileSync(filePath).toString('base64')}`;
+  } catch (err) {
+    return null;
+  }
+}
+
+ipcMain.handle('background:pick', async () => {
+  if (!mainWindow) return null;
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: "Choisir une image d'arrière-plan",
+    properties: ['openFile'],
+    filters: [
+      { name: 'Images', extensions: ['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'avif'] },
+    ],
+  });
+  if (canceled || filePaths.length === 0) return { canceled: true };
+  const dataUrl = readImageAsDataUrl(filePaths[0]);
+  if (!dataUrl) return { error: 'Image illisible ou trop lourde (25 Mo max)' };
+  return { path: filePaths[0], dataUrl };
+});
+
+ipcMain.handle('background:load', (_e, filePath) =>
+  typeof filePath === 'string' ? readImageAsDataUrl(filePath) : null
+);
+
 /* ---------------------------- IPC : presse-papier ------------------------ */
 ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(text == null ? '' : String(text)));
 ipcMain.handle('clipboard:read', () => clipboard.readText());

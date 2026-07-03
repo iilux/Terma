@@ -56,6 +56,11 @@ contextBridge.exposeInMainWorld('terma', {
     openFolder: () => ipcRenderer.send('themes:openFolder'),
   },
 
+  background: {
+    pick: () => ipcRenderer.invoke('background:pick'),
+    load: (filePath) => ipcRenderer.invoke('background:load', filePath),
+  },
+
   clipboard: {
     write: (text) => ipcRenderer.send('clipboard:write', text),
     read: () => ipcRenderer.invoke('clipboard:read'),
