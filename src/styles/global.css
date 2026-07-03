@@ -24,11 +24,16 @@
   --hover: rgba(255, 255, 255, 0.06);
   --hover-strong: rgba(255, 255, 255, 0.1);
 
+  --scrollbar: #262626;
+  --scrollbar-hover: #383838;
+
   --ui-font: 'Inter', 'Segoe UI', system-ui, -apple-system, sans-serif;
 
   --titlebar-h: 40px;
   --tab-h: 30px;
 }
+/* NB : toutes les couleurs ci-dessus sont pilotables par les thèmes
+   (voir src/themes/themeHost.js — whitelist des variables). */
 
 * {
   box-sizing: border-box;
@@ -75,13 +80,13 @@ button:focus {
   background: transparent;
 }
 *::-webkit-scrollbar-thumb {
-  background: #262626;
+  background: var(--scrollbar);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 *::-webkit-scrollbar-thumb:hover {
-  background: #383838;
+  background: var(--scrollbar-hover);
   background-clip: content-box;
 }
 
@@ -114,12 +119,26 @@ button:focus {
   -webkit-app-region: drag;
 }
 
-.brand-dot {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #4d8dff, #9a6bff);
-  box-shadow: 0 0 7px rgba(77, 141, 255, 0.45);
+/* Logo « ❯_ » : monogramme SVG cliquable qui ouvre le menu de l'app */
+.brand-logo {
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 7px;
+  -webkit-app-region: no-drag;
+  transition: background 0.12s ease, transform 0.12s ease;
+}
+.brand-logo svg {
+  display: block;
+  filter: drop-shadow(0 0 6px rgba(77, 141, 255, 0.35));
+}
+.brand-logo:hover {
+  background: var(--hover);
+}
+.brand-logo:active {
+  transform: scale(0.94);
 }
 
 .brand-name {
@@ -292,14 +311,30 @@ button:focus {
   background: var(--bg);
 }
 
-.terminal-pane {
+/* Zone de panneaux d'un onglet (rendu à plat : slots + poignées absolus) */
+.pane-root {
   position: absolute;
   inset: 0;
   display: none;
-  padding: 8px 4px 6px 10px;
 }
-.terminal-pane.active {
+.pane-root.active {
   display: block;
+}
+
+.pane-slot {
+  position: absolute;
+}
+
+.terminal-pane {
+  position: absolute;
+  inset: 0;
+  padding: 8px 4px 6px 10px;
+  border-radius: 6px;
+}
+/* panneau actif quand l'onglet est divisé */
+.terminal-pane.focused {
+  box-shadow: inset 0 0 0 1px
+    color-mix(in srgb, var(--accent) 45%, transparent);
 }
 
 .terminal-pane .xterm {
@@ -307,19 +342,99 @@ button:focus {
   height: 100%;
 }
 
+/* Poignées de redimensionnement entre panneaux */
+.pane-divider {
+  position: absolute;
+  z-index: 10;
+}
+.pane-divider.vertical {
+  width: 9px;
+  transform: translateX(-50%);
+  cursor: col-resize;
+}
+.pane-divider.horizontal {
+  height: 9px;
+  transform: translateY(-50%);
+  cursor: row-resize;
+}
+.pane-divider::after {
+  content: '';
+  position: absolute;
+  background: var(--border-soft);
+  transition: background 0.12s ease;
+}
+.pane-divider.vertical::after {
+  left: 4px;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+}
+.pane-divider.horizontal::after {
+  top: 4px;
+  left: 0;
+  right: 0;
+  height: 1px;
+}
+.pane-divider:hover::after,
+body.pane-resizing .pane-divider::after {
+  background: var(--accent);
+}
+
+/* pendant un drag de poignée : pas de sélection ni d'events dans xterm */
+body.pane-resizing {
+  user-select: none;
+}
+body.pane-resizing .xterm {
+  pointer-events: none;
+}
+
 /* scrollbar interne d'xterm */
 .xterm-viewport::-webkit-scrollbar {
   width: 10px;
 }
 .xterm-viewport::-webkit-scrollbar-thumb {
-  background: #2b2b2b;
+  background: var(--scrollbar);
   border-radius: 5px;
   border: 2px solid transparent;
   background-clip: content-box;
 }
 .xterm-viewport::-webkit-scrollbar-thumb:hover {
-  background: #3c3c3c;
+  background: var(--scrollbar-hover);
   background-clip: content-box;
+}
+
+/* ============================ Barre de recherche ========================= */
+.search-bar {
+  position: absolute;
+  top: 10px;
+  right: 14px;
+  z-index: 50;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 7px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.45);
+}
+.search-icon {
+  color: var(--text-faint);
+  margin: 0 2px;
+}
+.search-bar input {
+  width: 168px;
+  height: 24px;
+  padding: 0 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-bright);
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.search-bar input::placeholder {
+  color: var(--text-faint);
 }
 
 .empty-stack {
@@ -470,7 +585,15 @@ button:focus {
   transition: background 0.12s ease;
 }
 .settings-action:hover {
-  background: #1f1f1f;
+  background: var(--hover);
+}
+.settings-action.accent {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.settings-action:disabled {
+  opacity: 0.4;
+  cursor: default;
 }
 .settings-action.danger {
   color: #ff6b6b;
@@ -494,7 +617,7 @@ button:focus {
   width: 38px;
   height: 21px;
   border-radius: 11px;
-  background: #333333;
+  background: var(--border);
   flex: none;
   transition: background 0.15s ease;
 }
@@ -513,4 +636,304 @@ button:focus {
 }
 .toggle.on .toggle-knob {
   transform: translateX(17px);
+}
+
+/* ===================== Renommage d'onglet (double-clic) ================== */
+.tab-rename-input {
+  flex: 1;
+  min-width: 0;
+  height: 20px;
+  padding: 0 4px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text-bright);
+  font-family: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+/* petites variantes de boutons icône (cartes de thème, recherche) */
+.icon-btn.small {
+  width: 22px;
+  height: 22px;
+  border-radius: 5px;
+}
+.icon-btn.danger:hover {
+  background: rgba(232, 17, 35, 0.14);
+  color: #ff6b6b;
+}
+
+/* ============================ Panneau Thèmes ============================= */
+.themes-panel {
+  width: 460px;
+  max-height: calc(100vh - var(--titlebar-h) - 24px);
+  display: flex;
+  flex-direction: column;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 18px 50px rgba(0, 0, 0, 0.55);
+  overflow: hidden;
+}
+
+.themes-body {
+  padding: 12px 14px 14px;
+  overflow-y: auto;
+}
+
+.themes-gap {
+  margin-top: 16px;
+}
+
+.theme-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.theme-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 8px;
+  border: 1px solid var(--border-soft);
+  border-radius: 10px;
+  background: var(--panel-2);
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+.theme-card:hover {
+  background: var(--hover);
+  border-color: var(--border);
+}
+.theme-card.active {
+  border-color: var(--accent);
+}
+
+.theme-preview {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
+  padding: 0 10px;
+  border-radius: 7px;
+  border: 1px solid rgba(127, 127, 127, 0.18);
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Consolas', monospace;
+  font-size: 13px;
+}
+.theme-preview-prompt {
+  font-weight: 600;
+}
+.theme-preview-dots {
+  display: flex;
+  gap: 4px;
+  margin-left: auto;
+}
+.theme-preview-dots i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+
+.theme-card-info {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.theme-card-name {
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--text-bright);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.theme-card-author {
+  flex: none;
+  font-size: 10.5px;
+  color: var(--text-faint);
+}
+
+.theme-card-actions {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  display: flex;
+  gap: 2px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.theme-card:hover .theme-card-actions {
+  opacity: 1;
+}
+.theme-card-actions .icon-btn {
+  background: color-mix(in srgb, var(--panel) 78%, transparent);
+}
+
+.theme-card-check {
+  position: absolute;
+  bottom: 9px;
+  right: 9px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 17px;
+  height: 17px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: #ffffff;
+}
+
+.themes-empty {
+  padding: 12px;
+  border: 1px dashed var(--border);
+  border-radius: 9px;
+  color: var(--text-dim);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.themes-empty code {
+  color: var(--text);
+  font-size: 11px;
+}
+
+.themes-error {
+  margin-top: 10px;
+  padding: 8px 10px;
+  border-radius: 7px;
+  background: rgba(232, 17, 35, 0.1);
+  border: 1px solid #3a2526;
+  color: #ff6b6b;
+  font-size: 12px;
+}
+
+.themes-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  margin-top: 4px;
+}
+.themes-actions .settings-action {
+  margin-top: 8px;
+}
+
+/* --------------------------- éditeur de thème ---------------------------- */
+.editor-meta {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.editor-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.editor-field span {
+  font-size: 11px;
+  color: var(--text-faint);
+}
+.editor-field input {
+  height: 28px;
+  padding: 0 8px;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  background: var(--panel-2);
+  color: var(--text-bright);
+  font-family: inherit;
+  font-size: 12.5px;
+  outline: none;
+}
+.editor-field input:focus {
+  border-color: var(--accent);
+}
+
+.editor-colors {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 4px 12px;
+}
+
+.color-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding: 3px 0;
+}
+.color-row-label {
+  font-size: 12px;
+  color: var(--text);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.color-row-inputs {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  flex: none;
+}
+.color-row input[type='color'] {
+  width: 24px;
+  height: 22px;
+  padding: 0;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: transparent;
+  cursor: pointer;
+}
+.color-row input[type='color']::-webkit-color-swatch-wrapper {
+  padding: 2px;
+}
+.color-row input[type='color']::-webkit-color-swatch {
+  border: none;
+  border-radius: 3px;
+}
+.color-row-hex {
+  width: 74px;
+  height: 22px;
+  padding: 0 6px;
+  border: 1px solid var(--border-soft);
+  border-radius: 5px;
+  background: var(--panel-2);
+  color: var(--text);
+  font-family: 'JetBrains Mono', 'Consolas', monospace;
+  font-size: 11px;
+  outline: none;
+}
+.color-row-hex:focus {
+  border-color: var(--accent);
+}
+
+/* ================================ Toast ================================== */
+.toast {
+  position: fixed;
+  bottom: 18px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1200;
+  padding: 8px 14px;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+  color: var(--text-bright);
+  font-size: 12.5px;
+  animation: toast-in 0.18s ease;
+}
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }

@@ -2,61 +2,53 @@ import React, { useEffect, useRef } from 'react';
 import { Terminal } from '@xterm/xterm';
 import { FitAddon } from '@xterm/addon-fit';
 import { SerializeAddon } from '@xterm/addon-serialize';
+import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
 
-// Thème terminal par défaut (sera rendu dynamique en Phase 4).
-const DEFAULT_TERMINAL_THEME = {
-  background: '#0d0d0d',
-  foreground: '#e0e0e0',
-  cursor: '#e6e6e6',
-  cursorAccent: '#0d0d0d',
-  selectionBackground: '#2a3f5f',
-  black: '#1a1a1a',
-  red: '#ff5f56',
-  green: '#5af78e',
-  yellow: '#f3f99d',
-  blue: '#57c7ff',
-  magenta: '#ff6ac1',
-  cyan: '#9aedfe',
-  white: '#c7c7c7',
-  brightBlack: '#686868',
-  brightRed: '#ff6e67',
-  brightGreen: '#5af78e',
-  brightYellow: '#f3f99d',
-  brightBlue: '#57c7ff',
-  brightMagenta: '#ff6ac1',
-  brightCyan: '#9aedfe',
-  brightWhite: '#ffffff',
-};
-
 const RESTORE_BANNER = '\x1b[90m\x1b[3m— session restaurée —\x1b[0m\r\n\r\n';
 
+// Surlignage des correspondances de recherche (décorations xterm)
+const SEARCH_DECORATIONS = {
+  matchBackground: '#3a5f9e55',
+  matchOverviewRuler: '#4d8dff',
+  activeMatchBackground: '#4d8dff66',
+  activeMatchColorOverviewRuler: '#4d8dff',
+};
+
 /**
- * Un onglet = un xterm.js relié à un pty (dans le main) via IPC.
- * Le composant reste monté même quand l'onglet est inactif (on masque en CSS)
+ * Un panneau = un xterm.js relié à un pty (dans le main) via IPC.
+ * Le composant reste monté même quand l'onglet est inactif (masqué en CSS)
  * pour préserver le buffer et éviter tout re-rendu coûteux.
+ *
+ * `visible` : l'onglet qui contient ce panneau est affiché.
+ * `focused` : ce panneau est le panneau actif de son onglet.
+ * `showFocusRing` : entoure le panneau actif (seulement si l'onglet est divisé).
  */
 export default function TerminalView({
-  id,
-  active,
+  paneId,
+  visible,
+  focused,
+  showFocusRing,
   initialCwd,
   restore,
   settings,
+  termTheme,
   onCwd,
   onExit,
   onContextMenu,
+  onFocusPane,
   registerHandle,
   unregisterHandle,
 }) {
   const containerRef = useRef(null);
   const termRef = useRef(null);
   const fitRef = useRef(null);
-  const isActiveRef = useRef(active);
+  const isVisibleRef = useRef(visible);
 
   // callbacks toujours à jour pour l'effet de montage (qui ne tourne qu'une fois)
   const cbRef = useRef({});
-  cbRef.current = { onCwd, onExit, onContextMenu, registerHandle, unregisterHandle };
+  cbRef.current = { onCwd, onExit, onContextMenu, onFocusPane, registerHandle, unregisterHandle };
 
   /* --------------------------- montage (une fois) -------------------------- */
   useEffect(() => {
@@ -71,14 +63,16 @@ export default function TerminalView({
       cursorStyle: settings.cursorStyle || 'bar',
       scrollback: 5000,
       allowProposedApi: true,
-      theme: DEFAULT_TERMINAL_THEME,
+      theme: termTheme,
       macOptionIsMeta: false,
     });
 
     const fitAddon = new FitAddon();
     const serializeAddon = new SerializeAddon();
+    const searchAddon = new SearchAddon();
     term.loadAddon(fitAddon);
     term.loadAddon(serializeAddon);
+    term.loadAddon(searchAddon);
     term.loadAddon(
       new WebLinksAddon((_e, uri) => window.terma?.openExternal(uri))
     );
@@ -109,7 +103,7 @@ export default function TerminalView({
     const fitAndResize = () => {
       fitOnly();
       try {
-        window.terma?.pty.resize(id, term.cols, term.rows);
+        window.terma?.pty.resize(paneId, term.cols, term.rows);
       } catch (err) {
         /* ignore */
       }
@@ -136,21 +130,21 @@ export default function TerminalView({
 
     /* ------------------------------ flux pty ------------------------------ */
     const offData = window.terma?.pty.onData((msg) => {
-      if (msg.id === id) term.write(msg.data);
+      if (msg.id === paneId) term.write(msg.data);
     });
     const offCwd = window.terma?.pty.onCwd((msg) => {
-      if (msg.id === id) cbRef.current.onCwd?.(id, msg.cwd);
+      if (msg.id === paneId) cbRef.current.onCwd?.(paneId, msg.cwd);
     });
     const offExit = window.terma?.pty.onExit((msg) => {
-      if (msg.id === id) {
+      if (msg.id === paneId) {
         term.write('\r\n\x1b[90m[processus terminé]\x1b[0m\r\n');
-        cbRef.current.onExit?.(id, msg.exitCode);
+        cbRef.current.onExit?.(paneId, msg.exitCode);
       }
     });
 
     // Saisie clavier -> pty (+ suivi best-effort de l'historique)
     term.onData((data) => {
-      window.terma?.pty.write(id, data);
+      window.terma?.pty.write(paneId, data);
       for (const ch of data) {
         const code = ch.charCodeAt(0);
         if (ch === '\r' || ch === '\n') {
@@ -180,14 +174,17 @@ export default function TerminalView({
       }
       if (ctrl && shift && k === 'v') {
         window.terma?.clipboard.read().then((t) => {
-          if (t) window.terma?.pty.write(id, t);
+          if (t) window.terma?.pty.write(paneId, t);
         });
         return false;
       }
       // Raccourcis gérés par le handler global (App) : on empêche juste xterm
       // de transmettre la touche au pty (l'event continue de bubbler vers window).
       if (ctrl && !shift && k === 't') return false;
+      if (ctrl && !shift && k === 'w') return false;
       if (ctrl && shift && k === 'w') return false;
+      if (ctrl && shift && k === 'd') return false;
+      if (ctrl && shift && k === 'b') return false;
       if (ctrl && k === 'tab') return false;
       if (ctrl && !shift && /^[1-9]$/.test(k)) return false;
       if (ctrl && shift && k === 'f') return false;
@@ -197,26 +194,31 @@ export default function TerminalView({
     // Menu contextuel custom (pas de menu OS)
     const onCtx = (e) => {
       e.preventDefault();
-      cbRef.current.onContextMenu?.({ x: e.clientX, y: e.clientY, id });
+      cbRef.current.onContextMenu?.({ x: e.clientX, y: e.clientY, paneId });
     };
     containerRef.current.addEventListener('contextmenu', onCtx);
 
-    // Resize automatique
+    // Clic (ou focus clavier) dans le panneau → il devient le panneau actif
+    const onFocusIn = () => cbRef.current.onFocusPane?.(paneId);
+    containerRef.current.addEventListener('focusin', onFocusIn);
+    containerRef.current.addEventListener('mousedown', onFocusIn);
+
+    // Resize automatique (le slot du panneau change de taille lors des splits)
     const ro = new ResizeObserver(() => {
-      if (isActiveRef.current) fitAndResize();
+      if (isVisibleRef.current) fitAndResize();
     });
     ro.observe(containerRef.current);
 
     // Démarrage du shell dans le bon cwd
     window.terma?.pty.create({
-      id,
+      id: paneId,
       cwd: initialCwd || undefined,
       cols: term.cols,
       rows: term.rows,
     });
 
-    // Expose les opérations de cet onglet à l'App (persistance + menus + raccourcis)
-    cbRef.current.registerHandle?.(id, {
+    // Expose les opérations de ce panneau à l'App (persistance + menus + raccourcis)
+    cbRef.current.registerHandle?.(paneId, {
       serialize: () => {
         try {
           return serializeAddon.serialize({ scrollback: 1000 });
@@ -231,18 +233,40 @@ export default function TerminalView({
       },
       paste: () =>
         window.terma?.clipboard.read().then((t) => {
-          if (t) window.terma?.pty.write(id, t);
+          if (t) window.terma?.pty.write(paneId, t);
         }),
       selectAll: () => term.selectAll(),
       clear: () => term.clear(),
       focus: () => term.focus(),
       fit: fitAndResize,
+      findNext: (q) => {
+        try {
+          searchAddon.findNext(q, { incremental: false, decorations: SEARCH_DECORATIONS });
+        } catch (err) {
+          /* ignore */
+        }
+      },
+      findPrevious: (q) => {
+        try {
+          searchAddon.findPrevious(q, { decorations: SEARCH_DECORATIONS });
+        } catch (err) {
+          /* ignore */
+        }
+      },
+      clearSearch: () => {
+        try {
+          searchAddon.clearDecorations();
+        } catch (err) {
+          /* ignore */
+        }
+        term.clearSelection();
+      },
     });
 
-    if (isActiveRef.current) {
+    if (isVisibleRef.current) {
       requestAnimationFrame(() => {
         fitAndResize();
-        term.focus();
+        if (focused) term.focus();
       });
     }
 
@@ -250,38 +274,46 @@ export default function TerminalView({
     return () => {
       ro.disconnect();
       containerRef.current?.removeEventListener('contextmenu', onCtx);
-      offData?.();
-      offCwd?.();
-      offExit?.();
-      cbRef.current.unregisterHandle?.(id);
-      window.terma?.pty.kill(id);
+      containerRef.current?.removeEventListener('focusin', onFocusIn);
+      containerRef.current?.removeEventListener('mousedown', onFocusIn);
+      cbRef.current.unregisterHandle?.(paneId);
+      window.terma?.pty.kill(paneId);
       term.dispose();
       termRef.current = null;
       fitRef.current = null;
     };
-    // montage unique : les deps stables (id) ne changent pas pour un onglet donné
+    // montage unique : les deps stables (paneId) ne changent pas pour un panneau donné
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /* ---------------- thème appliqué à chaud (sans redémarrage) -------------- */
+  useEffect(() => {
+    if (termRef.current && termTheme) {
+      termRef.current.options.theme = termTheme;
+    }
+  }, [termTheme]);
+
   /* --------------------- activation : fit + focus visible ------------------ */
   useEffect(() => {
-    isActiveRef.current = active;
-    if (active && termRef.current) {
+    isVisibleRef.current = visible;
+    if (visible && termRef.current) {
       requestAnimationFrame(() => {
         try {
           fitRef.current?.fit();
-          window.terma?.pty.resize(id, termRef.current.cols, termRef.current.rows);
+          window.terma?.pty.resize(paneId, termRef.current.cols, termRef.current.rows);
         } catch (err) {
           /* ignore */
         }
-        termRef.current?.focus();
+        if (focused) termRef.current?.focus();
       });
     }
-  }, [active, id]);
+  }, [visible, focused, paneId]);
 
   return (
     <div
-      className={'terminal-pane' + (active ? ' active' : '')}
+      className={
+        'terminal-pane' + (showFocusRing && focused ? ' focused' : '')
+      }
       ref={containerRef}
     />
   );

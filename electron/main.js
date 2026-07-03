@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Menu, clipboard, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, clipboard, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { PtyManager } = require('./pty-manager');
@@ -12,6 +12,18 @@ let ptyManager = null;
 
 const userData = () => app.getPath('userData');
 const sessionFile = () => path.join(userData(), 'session.json');
+const themesDir = () => path.join(userData(), 'themes');
+
+/**
+ * Nom de fichier de thème sûr : pas de chemin, charset restreint, extension
+ * imposée (.termatheme ou .json). Renvoie null si irrécupérable.
+ */
+function safeThemeFileName(name) {
+  const base = path.basename(String(name || ''));
+  if (!/^[a-z0-9._-]+$/i.test(base)) return null;
+  if (base.endsWith('.termatheme') || base.endsWith('.json')) return base;
+  return base + '.termatheme';
+}
 
 /** Crée les dossiers attendus au premier lancement (themes/extensions — Phases 4 & 5). */
 function ensureUserDirs() {
@@ -122,6 +134,142 @@ ipcMain.handle('session:clear', () => {
     /* déjà absent */
   }
   return true;
+});
+
+/* ------------------- IPC : export/import d'onglet (.termasession) -------- */
+ipcMain.handle('session:exportTab', async (_e, { payload, suggestedName }) => {
+  if (!mainWindow) return false;
+  const base = path
+    .basename(String(suggestedName || 'session.termasession'))
+    .replace(/[^a-z0-9 ._()-]/gi, '_');
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exporter la session',
+    defaultPath: base,
+    filters: [{ name: 'Session Terma', extensions: ['termasession'] }],
+  });
+  if (canceled || !filePath) return false;
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(payload, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[session] export impossible:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('session:importTab', async () => {
+  if (!mainWindow) return null;
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Importer une session',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Session Terma', extensions: ['termasession', 'json'] },
+      { name: 'Tous les fichiers', extensions: ['*'] },
+    ],
+  });
+  if (canceled || filePaths.length === 0) return { canceled: true };
+  try {
+    return { data: JSON.parse(fs.readFileSync(filePaths[0], 'utf8')) };
+  } catch (err) {
+    return { error: 'Fichier illisible ou JSON invalide' };
+  }
+});
+
+/* ------------------------------ IPC : thèmes ----------------------------- */
+// Les thèmes sont des DONNÉES (JSON), jamais du code : le main se contente de
+// lire/écrire le dossier userData/themes ; la validation fine (whitelist des
+// clés/valeurs) est faite côté renderer (src/themes/themeHost.js).
+ipcMain.handle('themes:list', () => {
+  try {
+    return fs
+      .readdirSync(themesDir())
+      .filter((f) => f.endsWith('.termatheme') || f.endsWith('.json'))
+      .map((fileName) => {
+        try {
+          const data = JSON.parse(
+            fs.readFileSync(path.join(themesDir(), fileName), 'utf8')
+          );
+          return { fileName, data };
+        } catch (err) {
+          return null; // fichier corrompu : ignoré
+        }
+      })
+      .filter(Boolean);
+  } catch (err) {
+    return [];
+  }
+});
+
+ipcMain.handle('themes:save', (_e, { fileName, data }) => {
+  const safe = safeThemeFileName(fileName);
+  if (!safe || !data || typeof data !== 'object') return false;
+  try {
+    fs.writeFileSync(
+      path.join(themesDir(), safe),
+      JSON.stringify(data, null, 2),
+      'utf8'
+    );
+    return true;
+  } catch (err) {
+    console.error('[themes] écriture impossible:', err);
+    return false;
+  }
+});
+
+ipcMain.handle('themes:delete', (_e, { fileName }) => {
+  const safe = safeThemeFileName(fileName);
+  if (!safe) return false;
+  try {
+    fs.unlinkSync(path.join(themesDir(), safe));
+    return true;
+  } catch (err) {
+    return false;
+  }
+});
+
+ipcMain.handle('themes:import', async () => {
+  if (!mainWindow) return null;
+  const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Importer un thème',
+    properties: ['openFile'],
+    filters: [
+      { name: 'Thème Terma', extensions: ['termatheme', 'json'] },
+      { name: 'Tous les fichiers', extensions: ['*'] },
+    ],
+  });
+  if (canceled || filePaths.length === 0) return { canceled: true };
+  try {
+    return {
+      fileName: path.basename(filePaths[0]),
+      data: JSON.parse(fs.readFileSync(filePaths[0], 'utf8')),
+    };
+  } catch (err) {
+    return { error: 'Fichier illisible ou JSON invalide' };
+  }
+});
+
+ipcMain.handle('themes:export', async (_e, { fileName, data }) => {
+  if (!mainWindow || !data || typeof data !== 'object') return false;
+  const base = path
+    .basename(String(fileName || 'theme.termatheme'))
+    .replace(/[^a-z0-9 ._()-]/gi, '_');
+  const { canceled, filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Exporter le thème',
+    defaultPath: base,
+    filters: [{ name: 'Thème Terma', extensions: ['termatheme'] }],
+  });
+  if (canceled || !filePath) return false;
+  try {
+    fs.writeFileSync(filePath, JSON.stringify(data, null, 2), 'utf8');
+    return true;
+  } catch (err) {
+    console.error('[themes] export impossible:', err);
+    return false;
+  }
+});
+
+ipcMain.on('themes:openFolder', () => {
+  shell.openPath(themesDir());
 });
 
 /* ---------------------------- IPC : presse-papier ------------------------ */
