@@ -1,0 +1,100 @@
+<div align="center">
+
+# ❯_ Terma
+
+**A modern desktop terminal emulator for Windows.**
+
+Built with Electron · React · Vite · xterm.js · node-pty
+
+</div>
+
+---
+
+Terma is a minimal, customizable terminal emulator: tabs, split panes, declarative themes, blurred background image, persistent sessions. Fully custom-drawn UI (title bar included), WebGL-accelerated rendering.
+
+## Features
+
+- **Tabs** — open, rename, duplicate, reorder, keyboard navigation.
+- **Split panes** — horizontal or vertical splits, resizable binary tree, each pane runs its own shell.
+- **Themes** — 6 built-in themes (Terma, Clair, Nord, Dracula, Gruvbox Dark, Solarized Dark), built-in editor, import/export as `.termatheme`. The logo and UI re-tint themselves based on the active theme's accent color.
+- **Custom background** — optional image with adjustable blur (0–24 px) and terminal transparency.
+- **Persistent sessions** — tab and split layout is restored on startup; per-tab export/import as `.termasession`.
+- **Search** in the scrollback buffer (`Ctrl+Shift+F`), clickable links, copy/paste.
+- **WebGL rendering** via xterm.js for smooth scrolling.
+
+## Tech stack
+
+| Layer | Technology |
+|---|---|
+| Desktop runtime | Electron 43 |
+| Main process | Unbundled CommonJS (`electron/`) |
+| Renderer | React 19 + Vite 8 |
+| Terminal | xterm.js 6 (+ fit, search, serialize, web-links, webgl addons) |
+| Pseudo-terminal | node-pty 1.1 (native module) |
+| Packaging | electron-builder (NSIS x64) |
+
+The architecture enforces strict isolation: `contextIsolation: true`, `nodeIntegration: false`, IPC exposed through `window.terma` (contextBridge in `electron/preload.js`).
+
+## Requirements
+
+- **Node.js** 18+ and npm
+- **Windows** with native build tools (Visual Studio Build Tools + Python) to compile node-pty
+
+## Installation
+
+```bash
+npm install
+```
+
+The `postinstall` step automatically applies the node-pty patches (`patch-package`) and rebuilds the native module for Electron (`electron-rebuild`).
+
+## Development
+
+```bash
+npm run dev
+```
+
+A custom launcher (`scripts/dev.js`) starts Vite then Electron and guarantees a clean shutdown: closing the window kills Vite and frees the port. DevTools: `F12` or `Ctrl+Shift+I`.
+
+## Build
+
+```bash
+npm run build      # build the renderer (Vite)
+npm run icons      # generate build/icon.png + build/icon.ico from build/icon.svg
+npm run dist       # build + .exe installer (NSIS) in release/
+```
+
+The installer produces a Windows x64 `.exe` with installation-directory selection and desktop / Start-menu shortcuts.
+
+## Keyboard shortcuts
+
+| Shortcut | Action |
+|---|---|
+| `Ctrl+T` | New tab |
+| `Ctrl+W` | Close active pane |
+| `Ctrl+Shift+W` | Close tab |
+| `Ctrl+Shift+D` | Split horizontally |
+| `Ctrl+Shift+B` | Split vertically |
+| `Ctrl+Shift+F` | Search in terminal |
+| `Ctrl+Shift+C` / `Ctrl+Shift+V` | Copy / Paste |
+| `Ctrl+Tab` / `Ctrl+Shift+Tab` | Next / previous tab |
+| `Ctrl+1`…`Ctrl+9` | Go to tab _n_ (9 = last) |
+
+## Project structure
+
+```
+electron/          Main process (main, preload, pty-manager)
+src/
+  components/      React components (TitleBar, TabBar, PaneArea, TerminalView…)
+  hooks/           useTabs, useSession, paneTree
+  themes/          Built-in themes + theme host (whitelist)
+  styles/          global.css
+scripts/           dev.js (launcher), generate-icons.js
+build/             icon.svg → icon.png / icon.ico
+```
+
+User data (session, themes, extensions) is stored in `%APPDATA%\terma`.
+
+## License
+
+MIT
