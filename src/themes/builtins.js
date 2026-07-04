@@ -23,7 +23,7 @@ const terma = {
     textBright: '#ededed',
     textDim: '#8a8a8a',
     textFaint: '#5a5a5a',
-    accent: '#4d8dff',
+    accent: '#9a6bff',
     danger: '#ff5f56',
     closeHover: '#e81123',
     hover: 'rgba(255, 255, 255, 0.06)',

@@ -44,6 +44,9 @@ function createWindow() {
     minHeight: 380,
     frame: false, // pas de titlebar OS — on la dessine nous-mêmes
     backgroundColor: '#0d0d0d',
+    // En prod l'icône vient de l'exe ; en dev build/ n'est pas packagé,
+    // on la fournit pour la taskbar.
+    ...(isDev ? { icon: path.join(__dirname, '..', 'build', 'icon.png') } : {}),
     show: false,
     title: 'Terma',
     webPreferences: {

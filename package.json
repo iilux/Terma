@@ -11,6 +11,7 @@
     "dev:renderer": "vite",
     "build": "vite build",
     "rebuild": "electron-rebuild -f -w node-pty",
+    "icons": "electron scripts/generate-icons.js",
     "dist": "npm run build && electron-builder",
     "postinstall": "patch-package && electron-rebuild -f -w node-pty"
   },

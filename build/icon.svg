@@ -1,0 +1,30 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
+  <!--
+    Source de l'icône d'application Terma — monogramme « ❯_ » blanc sur carré
+    arrondi à dégradé noir → violet (noir dominant, le violet n'apparaît que
+    dans le coin bas-droit). Même dessin que le logo de la titlebar
+    (TitleBar.jsx). Régénérer les PNG/ICO : npm run icons
+  -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#100d16" />
+      <stop offset="0.62" stop-color="#191230" />
+      <stop offset="1" stop-color="#9a6bff" />
+    </linearGradient>
+  </defs>
+  <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#g)" />
+  <path
+    d="M 141 167 L 233 256 L 141 345"
+    stroke="#ffffff"
+    stroke-width="50"
+    fill="none"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
+  <path
+    d="M 285 345 H 373"
+    stroke="#ffffff"
+    stroke-width="50"
+    stroke-linecap="round"
+  />
+</svg>
