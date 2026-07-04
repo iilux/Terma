@@ -22,7 +22,9 @@ win:
     - target: nsis
       arch:
         - x64
-  # icon: build/icon.ico   # à fournir plus tard (Phase 7)
+  # Générée depuis build/icon.svg via `npm run icons`.
+  # Sert aussi d'icône à l'installateur NSIS (installerIcon en hérite).
+  icon: build/icon.ico
 
 nsis:
   oneClick: false

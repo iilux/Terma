@@ -42,9 +42,14 @@ export default function TitleBar({
         >
           <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
             <defs>
+              {/* Noir dominant → accent du thème dans le coin : le logo se
+                  re-teinte automatiquement pour chaque thème (intégré ou perso),
+                  via la variable --accent. Le chevron blanc reste lisible car il
+                  se trouve sur la zone sombre. */}
               <linearGradient id="terma-logo-grad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="var(--accent, #4d8dff)" />
-                <stop offset="1" stopColor="#9a6bff" />
+                <stop offset="0" stopColor="#100d16" />
+                <stop offset="0.55" stopColor="#100d16" />
+                <stop offset="1" stopColor="var(--accent, #9a6bff)" />
               </linearGradient>
             </defs>
             <rect
