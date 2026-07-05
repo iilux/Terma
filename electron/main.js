@@ -4,11 +4,13 @@ const { app, BrowserWindow, ipcMain, Menu, clipboard, shell, dialog } = require(
 const path = require('path');
 const fs = require('fs');
 const { PtyManager } = require('./pty-manager');
+const { IntegrationManager } = require('./integrations');
 
 const isDev = !app.isPackaged;
 
 let mainWindow = null;
 let ptyManager = null;
+let integrations = null;
 
 const userData = () => app.getPath('userData');
 const sessionFile = () => path.join(userData(), 'session.json');
@@ -325,6 +327,22 @@ ipcMain.handle('background:load', (_e, filePath) =>
 ipcMain.on('clipboard:write', (_e, text) => clipboard.writeText(text == null ? '' : String(text)));
 ipcMain.handle('clipboard:read', () => clipboard.readText());
 
+/* --------------------------- IPC : intégrations -------------------------- */
+// L'état activé/config vient du renderer (persisté dans ses réglages) ; le
+// main se contente d'appliquer. Payloads validés : ils pilotent des modules.
+ipcMain.on('integrations:setState', (_e, payload) => {
+  if (!payload || typeof payload.id !== 'string') return;
+  const config =
+    payload.config && typeof payload.config === 'object' ? payload.config : {};
+  integrations?.setState(payload.id, !!payload.enabled, config);
+});
+
+ipcMain.on('presence:update', (_e, payload) => {
+  integrations?.setPresence({
+    title: typeof payload?.title === 'string' ? payload.title : null,
+  });
+});
+
 /* ------------------------------- IPC : shell ----------------------------- */
 ipcMain.on('shell:openExternal', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
@@ -340,6 +358,11 @@ app.whenReady().then(() => {
     () => mainWindow,
     path.join(userData(), 'shell-integration')
   );
+  integrations = new IntegrationManager((id, status) => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      mainWindow.webContents.send('integrations:status', { id, status });
+    }
+  });
 
   createWindow();
 
@@ -354,4 +377,5 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   ptyManager?.killAll();
+  integrations?.disposeAll();
 });

@@ -21,6 +21,21 @@ Terma is a minimal, customizable terminal emulator: tabs, split panes, declarati
 - **Persistent sessions** — tab and split layout is restored on startup; per-tab export/import as `.termasession`.
 - **Search** in the scrollback buffer (`Ctrl+Shift+F`), clickable links, copy/paste.
 - **WebGL rendering** via xterm.js for smooth scrolling.
+- **Integrations (opt-in)** — optional modules, all disabled by default. First one: Discord Rich Presence (see below).
+
+## Integrations
+
+Integrations live in `electron/integrations/`, one self-contained module per file, registered in `electron/integrations/index.js`. They are **always opt-in**: nothing runs until the user enables it in Settings → Intégrations.
+
+### Discord Rich Presence
+
+Shows "playing Terma" on your Discord profile, optionally with the active tab name (separate toggle, off by default since tab names can reveal project/host names). Implemented as a dependency-free local IPC client (`electron/integrations/discord-rpc.js`) — no data leaves your machine except what Discord itself publishes on your profile.
+
+To make it work on your build:
+
+1. Create an application on the [Discord Developer Portal](https://discord.com/developers/applications) named `Terma`.
+2. Copy its **Application ID** into `DISCORD_APP_ID` in `electron/integrations/discord-rpc.js` (this ID is public by design, safe to commit).
+3. Optional: upload an art asset named `terma` (Rich Presence → Art Assets) to display the logo.
 
 ## Tech stack
 
