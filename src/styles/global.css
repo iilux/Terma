@@ -646,6 +646,18 @@ body.pane-resizing .xterm {
   background: rgba(232, 17, 35, 0.1);
 }
 
+/* Intégrations : sous-option indentée sous son toggle parent + ligne d'état */
+.settings-row-text.sub {
+  padding-left: 22px;
+  color: var(--text-dim);
+}
+.settings-hint {
+  margin-top: 4px;
+  padding-left: 22px;
+  font-size: 11px;
+  color: var(--text-faint);
+}
+
 .settings-footer {
   padding: 10px 14px;
   border-top: 1px solid var(--border-soft);

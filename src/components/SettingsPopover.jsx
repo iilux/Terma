@@ -1,5 +1,13 @@
 import React, { useEffect } from 'react';
-import { X, RotateCcw, Trash2, Palette, Image as ImageIcon, Droplets } from 'lucide-react';
+import {
+  X,
+  RotateCcw,
+  Trash2,
+  Palette,
+  Image as ImageIcon,
+  Droplets,
+  Gamepad2,
+} from 'lucide-react';
 
 /** Dernier segment d'un chemin (affichage du nom de l'image de fond). */
 function fileNameOf(p) {
@@ -7,6 +15,14 @@ function fileNameOf(p) {
   const parts = String(p).split(/[\\/]/);
   return parts[parts.length - 1] || p;
 }
+
+/** Libellé humain du statut d'une intégration (remonté par le main). */
+const INTEGRATION_STATUS_LABELS = {
+  unconfigured: "ID d'application Discord non configuré",
+  connecting: 'Connexion à Discord…',
+  connected: 'Connecté à Discord',
+  unavailable: 'Discord introuvable — vérifie qu’il est lancé',
+};
 
 /**
  * Réglages essentiels de la session (le panneau complet arrive en Phase 6).
@@ -16,6 +32,7 @@ function fileNameOf(p) {
  */
 export default function SettingsPopover({
   settings,
+  integrationStatus,
   onChange,
   onClearSession,
   onOpenThemes,
@@ -23,6 +40,21 @@ export default function SettingsPopover({
   onClearBackground,
   onClose,
 }) {
+  const discord = settings.integrations?.discordRpc || {
+    enabled: false,
+    showTabName: false,
+  };
+  const setDiscord = (patch) =>
+    onChange({
+      ...settings,
+      integrations: {
+        ...settings.integrations,
+        discordRpc: { ...discord, ...patch },
+      },
+    });
+  const discordStatusLabel =
+    INTEGRATION_STATUS_LABELS[integrationStatus?.['discord-rpc']] || null;
+
   useEffect(() => {
     const onKey = (e) => {
       if (e.key === 'Escape') onClose();
@@ -96,6 +128,46 @@ export default function SettingsPopover({
         </div>
 
         <div className="settings-section">
+          <div className="settings-section-label">Intégrations</div>
+
+          <label className="settings-row">
+            <span className="settings-row-text">
+              <Gamepad2 size={14} strokeWidth={1.5} />
+              Discord Rich Presence
+            </span>
+            <button
+              className={'toggle' + (discord.enabled ? ' on' : '')}
+              role="switch"
+              aria-checked={discord.enabled}
+              onClick={() => setDiscord({ enabled: !discord.enabled })}
+            >
+              <span className="toggle-knob" />
+            </button>
+          </label>
+
+          {discord.enabled && (
+            <>
+              <label className="settings-row">
+                <span className="settings-row-text sub">
+                  Afficher le nom de l’onglet actif
+                </span>
+                <button
+                  className={'toggle' + (discord.showTabName ? ' on' : '')}
+                  role="switch"
+                  aria-checked={discord.showTabName}
+                  onClick={() => setDiscord({ showTabName: !discord.showTabName })}
+                >
+                  <span className="toggle-knob" />
+                </button>
+              </label>
+              {discordStatusLabel && (
+                <div className="settings-hint">{discordStatusLabel}</div>
+              )}
+            </>
+          )}
+        </div>
+
+        <div className="settings-section">
           <div className="settings-section-label">Session</div>
 
           <label className="settings-row">
@@ -121,7 +193,7 @@ export default function SettingsPopover({
           </button>
         </div>
 
-        <div className="settings-footer">Terma — v0.3.0</div>
+        <div className="settings-footer">Terma — v0.4.0</div>
       </div>
     </div>
   );

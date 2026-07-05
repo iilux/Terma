@@ -61,6 +61,13 @@ contextBridge.exposeInMainWorld('terma', {
     load: (filePath) => ipcRenderer.invoke('background:load', filePath),
   },
 
+  integrations: {
+    setState: (id, enabled, config) =>
+      ipcRenderer.send('integrations:setState', { id, enabled, config }),
+    updatePresence: (payload) => ipcRenderer.send('presence:update', payload),
+    onStatus: (cb) => subscribe('integrations:status', cb),
+  },
+
   clipboard: {
     write: (text) => ipcRenderer.send('clipboard:write', text),
     read: () => ipcRenderer.invoke('clipboard:read'),

@@ -41,6 +41,10 @@ const DEFAULT_SETTINGS = {
   cursorBlink: true,
   backgroundImage: null, // chemin de l'image de fond (optionnelle)
   backgroundBlur: 8, // flou en px (0 = net)
+  // Intégrations optionnelles : TOUJOURS désactivées par défaut (opt-in).
+  integrations: {
+    discordRpc: { enabled: false, showTabName: false },
+  },
 };
 
 /** Dernier segment d'un chemin (pour le titre d'onglet). */
@@ -109,6 +113,8 @@ export default function App() {
   const [toast, setToast] = useState(null);
   // data URL de l'image de fond (relue depuis son chemin à chaque lancement)
   const [bgImageUrl, setBgImageUrl] = useState(null);
+  // statut des intégrations, remonté par le main ({ 'discord-rpc': 'connected', … })
+  const [integrationStatus, setIntegrationStatus] = useState({});
 
   const {
     themes,
@@ -205,6 +211,30 @@ export default function App() {
     const off = window.terma?.window.onMaximizeChange((m) => setIsMaximized(!!m));
     return () => off?.();
   }, []);
+
+  /* ----------------------------- intégrations ----------------------------- */
+  useEffect(() => {
+    const off = window.terma?.integrations?.onStatus(({ id, status }) =>
+      setIntegrationStatus((prev) => ({ ...prev, [id]: status }))
+    );
+    return () => off?.();
+  }, []);
+
+  // pousse l'état activé/config vers le main (qui active/désactive le module)
+  useEffect(() => {
+    if (!booted) return;
+    const discord = settings.integrations?.discordRpc || {};
+    window.terma?.integrations?.setState('discord-rpc', !!discord.enabled, {
+      showTabName: !!discord.showTabName,
+    });
+  }, [booted, settings.integrations]);
+
+  // presence : le nom de l'onglet actif (le main décide de l'afficher ou non)
+  const activeTitle = activeTab?.title || null;
+  useEffect(() => {
+    if (!booted) return;
+    window.terma?.integrations?.updatePresence({ title: activeTitle });
+  }, [booted, activeTitle]);
 
   /* --------------------- toujours au moins un onglet ---------------------- */
   useEffect(() => {
@@ -683,6 +713,7 @@ export default function App() {
       {settingsOpen && (
         <SettingsPopover
           settings={settings}
+          integrationStatus={integrationStatus}
           onChange={setSettings}
           onClearSession={handleClearSession}
           onPickBackground={handlePickBackground}
