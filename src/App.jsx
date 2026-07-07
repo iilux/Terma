@@ -34,6 +34,8 @@ import { DEFAULT_THEME } from './themes/builtins.js';
 
 const DEFAULT_SETTINGS = {
   restoreSession: true,
+  // fermer la fenêtre replie Terma dans la barre système (shells toujours vivants)
+  keepInBackground: true,
   themeId: DEFAULT_THEME.id,
   fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace",
   fontSize: 14,
@@ -219,6 +221,21 @@ export default function App() {
     );
     return () => off?.();
   }, []);
+
+  // pousse le mode arrière-plan vers le main (qui intercepte ou non le close)
+  useEffect(() => {
+    if (!booted) return;
+    window.terma?.app?.setBackgroundMode(settings.keepInBackground !== false);
+  }, [booted, settings.keepInBackground]);
+
+  // le main demande un instantané de session (juste avant le repli en tray)
+  useEffect(() => {
+    if (!booted) return;
+    const off = window.terma?.session?.onSaveRequest?.(() => {
+      save(tabsRef.current, activeIdRef.current, settingsRef.current);
+    });
+    return () => off?.();
+  }, [booted, save]);
 
   // pousse l'état activé/config vers le main (qui active/désactive le module)
   useEffect(() => {

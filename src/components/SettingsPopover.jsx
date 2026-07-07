@@ -7,6 +7,7 @@ import {
   Image as ImageIcon,
   Droplets,
   Gamepad2,
+  Moon,
 } from 'lucide-react';
 
 /** Dernier segment d'un chemin (affichage du nom de l'image de fond). */
@@ -186,6 +187,30 @@ export default function SettingsPopover({
               <span className="toggle-knob" />
             </button>
           </label>
+
+          <label className="settings-row">
+            <span className="settings-row-text">
+              <Moon size={14} strokeWidth={1.5} />
+              Continuer en arrière-plan à la fermeture
+            </span>
+            <button
+              className={'toggle' + (settings.keepInBackground !== false ? ' on' : '')}
+              role="switch"
+              aria-checked={settings.keepInBackground !== false}
+              onClick={() =>
+                onChange({
+                  ...settings,
+                  keepInBackground: settings.keepInBackground === false,
+                })
+              }
+            >
+              <span className="toggle-knob" />
+            </button>
+          </label>
+          <div className="settings-hint">
+            Fermer la fenêtre garde les shells actifs dans la barre système —
+            rouvrir Terma reprend exactement où vous en étiez.
+          </div>
 
           <button className="settings-action danger" onClick={onClearSession}>
             <Trash2 size={14} strokeWidth={1.5} />

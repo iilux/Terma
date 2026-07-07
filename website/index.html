@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Terma — a modern terminal for Windows</title>
+  <meta name="description" content="Terma is an open source terminal emulator for Windows: tabs, split panes, declarative themes, persistent sessions, WebGL-accelerated rendering." />
+  <meta property="og:title" content="Terma — a modern terminal for Windows" />
+  <meta property="og:description" content="Tabs, splits, themes, persistent sessions. Open source (MIT)." />
+  <link rel="icon" type="image/svg+xml" href="assets/icon.svg" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,400;0,500;0,700;1,400&family=Inter:wght@400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+</head>
+<body>
+
+  <!-- Title bar: replica of the app's custom titlebar, doubles as the nav -->
+  <header class="titlebar">
+    <a class="brand" href="#top" aria-label="Terma — back to top">
+      <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
+        <defs>
+          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
+            <stop offset="0" stop-color="#100d16" />
+            <stop offset="0.62" stop-color="#191230" />
+            <stop offset="1" stop-color="#9a6bff" />
+          </linearGradient>
+        </defs>
+        <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#lg)" />
+        <path d="M 141 167 L 233 256 L 141 345" stroke="#fff" stroke-width="50" fill="none" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="M 285 345 H 373" stroke="#fff" stroke-width="50" stroke-linecap="round" />
+      </svg>
+      <span class="brand-name">terma</span>
+    </a>
+
+    <nav class="tabs" aria-label="Sections">
+      <a class="tab" href="#splits"><span class="tab-dot"></span>splits</a>
+      <a class="tab" href="#themes"><span class="tab-dot"></span>themes</a>
+      <a class="tab" href="#features"><span class="tab-dot"></span>features</a>
+      <a class="tab" href="#opensource"><span class="tab-dot"></span>open-source</a>
+      <a class="tab tab-accent" href="#download"><span class="tab-dot"></span>download</a>
+    </nav>
+
+    <div class="win-controls" aria-hidden="true">
+      <a class="gh-mini" href="https://github.com/iilux/Terma" target="_blank" rel="noopener" aria-label="GitHub" title="View the GitHub repo">
+        <svg viewBox="0 0 16 16" width="15" height="15" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <span class="wc" title="Minimize (decorative — you're on a website)">&#x2500;</span>
+      <span class="wc" title="Maximize (decorative)">&#x25A1;</span>
+      <span class="wc wc-close" title="This button closes nothing. Promise.">&#x2715;</span>
+    </div>
+  </header>
+
+  <main id="top">
+
+    <!-- ============ HERO ============ -->
+    <section class="hero" id="hero">
+      <div class="hero-glow" aria-hidden="true"></div>
+      <div class="hero-grid" aria-hidden="true"></div>
+
+      <div class="hero-inner">
+        <div class="hero-copy">
+          <p class="kicker">// terminal emulator &middot; windows &middot; open source</p>
+          <h1 class="hero-title">
+            The terminal<br />Windows <em>deserves</em>.
+          </h1>
+          <p class="lead">
+            Tabs, split panes, declarative themes, persistent sessions.
+            A UI drawn pixel by pixel, WebGL-accelerated rendering,
+            and every line of code under the MIT license.
+          </p>
+          <div class="cta-row">
+            <a class="btn btn-primary js-download" href="https://github.com/iilux/Terma/releases" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+              <span class="js-download-label">Download for Windows</span>
+            </a>
+            <a class="btn btn-ghost" href="https://github.com/iilux/Terma" target="_blank" rel="noopener">
+              Source code
+              <span class="btn-arrow">&#x2197;</span>
+            </a>
+          </div>
+          <p class="dl-meta js-download-meta">&nbsp;</p>
+        </div>
+
+        <!-- Hero terminal: the session types itself -->
+        <div class="term-window hero-term" id="hero-term">
+          <div class="tw-titlebar">
+            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-tab tw-tab-active">powershell</span>
+            <span class="tw-tab">wsl</span>
+            <span class="tw-spacer"></span>
+            <span class="tw-controls" aria-hidden="true"><i>&#x2500;</i><i>&#x25A1;</i><i class="tw-x">&#x2715;</i></span>
+          </div>
+          <div class="tw-body" id="hero-screen" aria-label="Terma session demo"></div>
+        </div>
+      </div>
+
+      <div class="scroll-hint" aria-hidden="true">
+        <span class="scroll-hint-txt">scroll</span>
+        <span class="scroll-hint-bar"></span>
+      </div>
+    </section>
+
+    <!-- ============ SPLITS (pinned, the window splits as you scroll) ============ -->
+    <section class="pin-section" id="splits">
+      <div class="pin-wrap">
+        <div class="section-head">
+          <span class="sec-num">01</span>
+          <h2 data-scramble>Divide and conquer.</h2>
+          <p class="sec-sub">
+            Every pane is a real shell, in a resizable binary tree.
+            Keep scrolling&nbsp;— the window splits itself.
+          </p>
+        </div>
+
+        <div class="term-window split-demo" id="split-demo">
+          <div class="tw-titlebar">
+            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-tab tw-tab-active">dev</span>
+            <span class="tw-spacer"></span>
+            <span class="tw-controls" aria-hidden="true"><i>&#x2500;</i><i>&#x25A1;</i><i class="tw-x">&#x2715;</i></span>
+          </div>
+          <div class="split-root">
+            <div class="pane pane-a">
+              <pre class="tw-pre"><span class="c-accent">&#x276F;</span> npm run dev
+<span class="c-cyan">  VITE v8.1.2</span>  ready in <span class="c-yellow">312 ms</span>
+<span class="c-green">  &#x279C;</span>  Local:  <span class="c-blue">http://localhost:5173/</span>
+<span class="c-dim">  [electron]</span> window created &middot; pty #1 spawned
+<span class="c-accent">&#x276F;</span> <span class="cursor"></span></pre>
+            </div>
+            <div class="pane pane-b">
+              <div class="pane pane-b1">
+                <pre class="tw-pre"><span class="c-accent">&#x276F;</span> git log --oneline -3
+<span class="c-yellow">8164745</span> Integrations &amp; Discord RPC
+<span class="c-yellow">d1eb624</span> Add README.md
+<span class="c-yellow">62757e4</span> Merge pull request #4</pre>
+              </div>
+              <div class="pane pane-b2">
+                <pre class="tw-pre"><span class="c-accent">&#x276F;</span> node -e "console.log('pane #3')"
+pane #3
+<span class="c-accent">&#x276F;</span> <span class="cursor"></span></pre>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="kbd-hints">
+          <span class="kbd-hint" id="hint-split-v"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd> horizontal split</span>
+          <span class="kbd-hint" id="hint-split-h"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd> vertical split</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ THEMES (pinned, scrolling cycles the 6 themes) ============ -->
+    <section class="pin-section" id="themes">
+      <div class="pin-wrap themes-wrap">
+        <div class="themes-copy">
+          <span class="sec-num">02</span>
+          <h2 data-scramble>Six built-in themes.<br />Or yours.</h2>
+          <p class="sec-sub">
+            Themes are declarative&nbsp;: a built-in editor, a
+            <code>.termatheme</code> export, and the whole UI — logo included —
+            re-tints itself to the active theme's accent. This page does too. Watch.
+          </p>
+          <div class="theme-meter">
+            <span class="theme-index" id="theme-index">01&thinsp;/&thinsp;06</span>
+            <span class="theme-name" id="theme-name">Terma</span>
+            <span class="theme-desc" id="theme-desc">The default dark theme — sober and minimal.</span>
+          </div>
+          <div class="theme-dots" id="theme-dots" aria-hidden="true"></div>
+        </div>
+
+        <div class="term-window theme-demo" id="theme-demo">
+          <div class="tw-titlebar">
+            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-tab tw-tab-active">~/projects/terma</span>
+            <span class="tw-spacer"></span>
+            <span class="tw-controls" aria-hidden="true"><i>&#x2500;</i><i>&#x25A1;</i><i class="tw-x">&#x2715;</i></span>
+          </div>
+          <div class="tw-body">
+            <pre class="tw-pre"><span class="t-accent">&#x276F;</span> git status -sb
+<span class="t-cyan">## main...origin/main</span>
+<span class="t-red"> M</span> src/themes/builtins.js
+<span class="t-green">A </span> www/index.html
+<span class="t-accent">&#x276F;</span> ls
+<span class="t-blue">electron/</span>  <span class="t-blue">src/</span>  <span class="t-blue">scripts/</span>  <span class="t-blue">build/</span>
+<span class="t-fg">package.json</span>  <span class="t-fg">README.md</span>
+<span class="t-accent">&#x276F;</span> echo $THEME
+<span class="t-magenta" id="theme-echo">Terma</span>
+<span class="t-accent">&#x276F;</span> <span class="cursor t-cursor"></span></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ FEATURES ============ -->
+    <section class="features" id="features">
+      <div class="container">
+        <div class="section-head">
+          <span class="sec-num">03</span>
+          <h2 data-scramble>Everything you expect. Nothing more.</h2>
+          <p class="sec-sub">No AI stuffed into your prompt, no telemetry, no subscription. A terminal.</p>
+        </div>
+
+        <div class="feature-grid">
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Tabs</h3>
+            <p>Open, rename, duplicate, reorder, navigate with the keyboard. <kbd>Ctrl</kbd><kbd>T</kbd> and off you go.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Split panes</h3>
+            <p>Horizontal and vertical splits, a resizable binary tree, an independent shell per pane.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Persistent sessions</h3>
+            <p>Tabs and layout restored on startup. Per-tab export as <code>.termasession</code>.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> WebGL rendering</h3>
+            <p>GPU-accelerated xterm.js. The scrollback glides like butter.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Search &amp; links</h3>
+            <p><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd> across the scrollback, clickable links, frictionless copy/paste.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Custom background</h3>
+            <p>Background image with adjustable blur (0–24&nbsp;px) and terminal transparency.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Custom titlebar</h3>
+            <p>A fully custom window, down to the title bar. Zero default Windows chrome.</p>
+          </article>
+          <article class="feature">
+            <h3><span class="fx">&#x276F;</span> Opt-in integrations</h3>
+            <p>Discord Rich Presence, 100&nbsp;% off by default. Nothing runs without your consent.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <!-- ============ SHORTCUTS MARQUEE ============ -->
+    <div class="kbd-marquee" aria-hidden="true">
+      <div class="kbd-track">
+        <!-- duplicated in JS for the infinite loop -->
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>T</kbd> new tab</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>D</kbd> horizontal split</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>B</kbd> vertical split</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>F</kbd> search</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>Tab</kbd> next tab</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>1</kbd>&hellip;<kbd>9</kbd> go to tab n</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>W</kbd> close pane</span>
+        <span class="kbd-item"><kbd>Ctrl</kbd><kbd>Shift</kbd><kbd>C</kbd>/<kbd>V</kbd> copy &middot; paste</span>
+      </div>
+    </div>
+
+    <!-- ============ OPEN SOURCE ============ -->
+    <section class="opensource" id="opensource">
+      <div class="container os-inner">
+        <div class="section-head">
+          <span class="sec-num">04</span>
+          <h2 data-scramble>Open source. For real.</h2>
+          <p class="sec-sub">
+            All the code lives on GitHub under the MIT license — the app, the
+            themes, the build scripts, even this page. Issues and pull requests welcome.
+          </p>
+        </div>
+
+        <div class="os-stats">
+          <div class="os-stat">
+            <span class="os-stat-value" id="gh-stars">&mdash;</span>
+            <span class="os-stat-label">GitHub stars</span>
+          </div>
+          <div class="os-stat">
+            <span class="os-stat-value" id="gh-version">&mdash;</span>
+            <span class="os-stat-label">latest release</span>
+          </div>
+          <div class="os-stat">
+            <span class="os-stat-value">MIT</span>
+            <span class="os-stat-label">license</span>
+          </div>
+        </div>
+
+        <div class="clone-box">
+          <code id="clone-cmd"><span class="c-accent">&#x276F;</span> git clone https://github.com/iilux/Terma.git</code>
+          <button class="copy-btn" id="copy-clone" type="button" aria-label="Copy the command">copy</button>
+        </div>
+
+        <a class="btn btn-ghost os-gh-btn" href="https://github.com/iilux/Terma" target="_blank" rel="noopener">
+          <svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+          iilux/Terma
+          <span class="btn-arrow">&#x2197;</span>
+        </a>
+      </div>
+    </section>
+
+    <!-- ============ DOWNLOAD ============ -->
+    <section class="download" id="download">
+      <div class="dl-glow" aria-hidden="true"></div>
+      <div class="container dl-inner">
+        <div class="dl-mark" aria-hidden="true">&#x276F;_</div>
+        <h2 data-scramble>Ready in thirty seconds.</h2>
+        <p class="sec-sub">
+          Windows x64 installer. The latest version is fetched live from
+          GitHub releases — this button never goes stale.
+        </p>
+        <a class="btn btn-primary btn-xl js-download" href="https://github.com/iilux/Terma/releases" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          <span class="js-download-label">Download for Windows</span>
+        </a>
+        <p class="dl-meta js-download-meta">&nbsp;</p>
+        <details class="build-yourself">
+          <summary>or build it yourself</summary>
+          <pre class="tw-pre"><span class="c-accent">&#x276F;</span> git clone https://github.com/iilux/Terma.git &amp;&amp; cd Terma
+<span class="c-accent">&#x276F;</span> npm install   <span class="c-dim"># node-pty patch + native rebuild, automatic</span>
+<span class="c-accent">&#x276F;</span> npm run dist  <span class="c-dim"># .exe installer lands in release/</span></pre>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-inner">
+      <span class="footer-brand"><span class="c-accent">&#x276F;_</span> terma</span>
+      <span class="footer-note">MIT &middot; &copy; 2026 iilux &middot; handmade — no template was harmed</span>
+      <a href="https://github.com/iilux/Terma" target="_blank" rel="noopener">github</a>
+    </div>
+  </footer>
+
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/lenis@1.1.18/dist/lenis.min.js"></script>
+  <script src="js/main.js"></script>
+</body>
+</html>

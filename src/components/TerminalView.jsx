@@ -114,7 +114,8 @@ export default function TerminalView({
     fitOnly();
 
     // Réinjection du scrollback restauré AVANT le démarrage du nouveau shell
-    if (restore && restore.scrollback) {
+    const hasRestore = !!(restore && restore.scrollback);
+    if (hasRestore) {
       term.write(RESTORE_BANNER);
       term.write(restore.scrollback);
       term.write('\r\n');
@@ -130,8 +131,17 @@ export default function TerminalView({
     };
 
     /* ------------------------------ flux pty ------------------------------ */
+    // Pendant le démarrage d'un shell restauré, ConPTY peut émettre ESC[3J
+    // (effacement du scrollback) en peignant son état initial : on le neutralise
+    // quelques secondes pour ne pas perdre le texte réinjecté.
+    const restoredAt = hasRestore ? Date.now() : 0;
     const offData = window.terma?.pty.onData((msg) => {
-      if (msg.id === paneId) term.write(msg.data);
+      if (msg.id !== paneId) return;
+      let data = msg.data;
+      if (restoredAt && Date.now() - restoredAt < 3000 && typeof data === 'string') {
+        data = data.replace(/\x1b\[3J/g, '');
+      }
+      term.write(data);
     });
     const offCwd = window.terma?.pty.onCwd((msg) => {
       if (msg.id === paneId) cbRef.current.onCwd?.(paneId, msg.cwd);
@@ -210,12 +220,15 @@ export default function TerminalView({
     });
     ro.observe(containerRef.current);
 
-    // Démarrage du shell dans le bon cwd
+    // Démarrage du shell dans le bon cwd. `inheritCursor` : le shell démarre
+    // sous le scrollback restauré au lieu d'effacer l'écran (ConPTY répond à
+    // la requête de position curseur ESC[6n, à laquelle xterm répond seul).
     window.terma?.pty.create({
       id: paneId,
       cwd: initialCwd || undefined,
       cols: term.cols,
       rows: term.rows,
+      inheritCursor: hasRestore,
     });
 
     // Expose les opérations de ce panneau à l'App (persistance + menus + raccourcis)

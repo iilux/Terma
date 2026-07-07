@@ -1,6 +1,6 @@
 'use strict';
 
-const { app, BrowserWindow, ipcMain, Menu, clipboard, shell, dialog } = require('electron');
+const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, clipboard, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { PtyManager } = require('./pty-manager');
@@ -11,6 +11,22 @@ const isDev = !app.isPackaged;
 let mainWindow = null;
 let ptyManager = null;
 let integrations = null;
+
+/* --------------------------- mode arrière-plan --------------------------- */
+// Fermer la fenêtre n'arrête pas Terma : l'app se replie dans la barre système
+// et les shells (donc builds, serveurs, ssh…) continuent de tourner. Rouvrir
+// la fenêtre remet l'état vivant, à l'octet près. Piloté par le réglage
+// `keepInBackground` du renderer (défaut : activé).
+let tray = null;
+let isQuitting = false;
+let backgroundMode = true; // doit refléter DEFAULT_SETTINGS.keepInBackground (App.jsx)
+let trayBalloonShown = false;
+
+// Une seule instance : relancer Terma rouvre la fenêtre existante (sinon les
+// shells vivraient dans une instance et la fenêtre dans une autre).
+if (!app.requestSingleInstanceLock()) {
+  app.quit();
+}
 
 const userData = () => app.getPath('userData');
 const sessionFile = () => path.join(userData(), 'session.json');
@@ -57,6 +73,9 @@ function createWindow() {
       nodeIntegration: false,
       sandbox: false,
       spellcheck: false,
+      // fenêtre cachée dans le tray : xterm doit continuer à consommer le flux
+      // des shells (ses timers seraient sinon ralentis à ~1 Hz)
+      backgroundThrottling: false,
     },
   });
 
@@ -87,15 +106,88 @@ function createWindow() {
   mainWindow.on('maximize', sendMaxState);
   mainWindow.on('unmaximize', sendMaxState);
 
-  // On tue les shells dès la fermeture de la fenêtre : sinon les process
-  // PowerShell enfants (spawnés par node-pty) deviennent orphelins et survivent.
-  mainWindow.on('close', () => {
+  // Mode arrière-plan : le X ne ferme pas, il replie dans la barre système
+  // (fenêtre cachée, renderer et ptys intacts). Vraie fermeture uniquement via
+  // « Quitter » du tray, un quit système, ou si le réglage est désactivé.
+  mainWindow.on('close', (e) => {
+    if (backgroundMode && !isQuitting) {
+      e.preventDefault();
+      // dernier instantané de session avant de disparaître de la taskbar
+      mainWindow.webContents.send('session:requestSave');
+      mainWindow.hide();
+      ensureTray();
+      return;
+    }
+    // Vraie fermeture : on tue les shells, sinon les process PowerShell
+    // enfants (spawnés par node-pty) deviennent orphelins et survivent.
     ptyManager?.killAll();
   });
 
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+}
+
+function showMainWindow() {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  if (mainWindow.isMinimized()) mainWindow.restore();
+  mainWindow.show();
+  mainWindow.focus();
+}
+
+/** Crée l'icône de la barre système (une seule fois). */
+async function ensureTray() {
+  if (tray) return;
+  // En dev l'icône vient de build/ ; en prod build/ n'est pas packagé, on
+  // récupère l'icône de l'exe lui-même.
+  let image = null;
+  const devIcon = path.join(__dirname, '..', 'build', 'icon.png');
+  if (fs.existsSync(devIcon)) image = nativeImage.createFromPath(devIcon);
+  if (!image || image.isEmpty()) {
+    try {
+      image = await app.getFileIcon(process.execPath);
+    } catch (err) {
+      image = nativeImage.createEmpty();
+    }
+  }
+  if (tray) return; // deux appels concurrents (close rapide ×2)
+  tray = new Tray(image);
+  tray.setToolTip('Terma — sessions actives en arrière-plan');
+  tray.setContextMenu(
+    Menu.buildFromTemplate([
+      { label: 'Ouvrir Terma', click: showMainWindow },
+      { type: 'separator' },
+      {
+        label: 'Quitter',
+        click: () => {
+          isQuitting = true;
+          if (mainWindow && !mainWindow.isDestroyed()) mainWindow.close();
+          else app.quit();
+        },
+      },
+    ])
+  );
+  tray.on('click', showMainWindow);
+  tray.on('double-click', showMainWindow);
+
+  // Premier repli : petite notification pour que l'utilisateur sache que
+  // Terma tourne encore (sinon « l'app ne se ferme pas » ressemble à un bug).
+  if (!trayBalloonShown && process.platform === 'win32') {
+    trayBalloonShown = true;
+    try {
+      tray.displayBalloon({
+        title: 'Terma continue en arrière-plan',
+        content:
+          'Vos shells restent actifs. Cliquez sur l’icône pour reprendre, clic droit → Quitter pour fermer.',
+        iconType: 'info',
+      });
+    } catch (err) {
+      /* balloon non critique */
+    }
+  }
 }
 
 /* ----------------------------- IPC : fenêtre ----------------------------- */
@@ -107,6 +199,16 @@ ipcMain.on('window:maximize', () => {
 });
 ipcMain.on('window:close', () => mainWindow?.close());
 ipcMain.handle('window:isMaximized', () => !!mainWindow?.isMaximized());
+
+// Le renderer pousse le réglage « continuer en arrière-plan » (persisté chez lui)
+ipcMain.on('app:setBackgroundMode', (_e, enabled) => {
+  backgroundMode = !!enabled;
+  // réglage désactivé pendant que la fenêtre est visible : le tray n'a plus lieu d'être
+  if (!backgroundMode && tray && mainWindow && !mainWindow.isDestroyed() && mainWindow.isVisible()) {
+    tray.destroy();
+    tray = null;
+  }
+});
 
 /* ------------------------------- IPC : pty ------------------------------- */
 ipcMain.handle('pty:create', (_e, opts) => ptyManager.create(opts));
@@ -369,6 +471,10 @@ app.whenReady().then(() => {
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Deuxième lancement de l'exe pendant que Terma tourne (souvent caché dans
+  // le tray) : on rouvre la fenêtre existante au lieu de créer une instance.
+  app.on('second-instance', () => showMainWindow());
 });
 
 app.on('window-all-closed', () => {
@@ -376,6 +482,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('before-quit', () => {
+  // quit système (arrêt de session, installeur…) : ne pas intercepter le close
+  isQuitting = true;
   ptyManager?.killAll();
   integrations?.disposeAll();
+  tray?.destroy();
+  tray = null;
 });

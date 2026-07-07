@@ -96,7 +96,10 @@ class PtyManager {
 
   /**
    * Crée une session pty.
-   * @param {{id:string, cwd?:string, shell?:string, cols?:number, rows?:number}} opts
+   * `inheritCursor` : ConPTY démarre à la position actuelle du curseur au lieu
+   * de repeindre l'écran depuis le haut — indispensable quand le renderer vient
+   * de réinjecter un scrollback restauré (sinon le clear initial l'efface).
+   * @param {{id:string, cwd?:string, shell?:string, cols?:number, rows?:number, inheritCursor?:boolean}} opts
    */
   create(opts = {}) {
     const id = opts.id;
@@ -117,6 +120,7 @@ class PtyManager {
       cwd,
       env: { ...process.env, TERM: 'xterm-256color' },
       useConpty: isWindows, // ConPTY = rendu ANSI correct sur Windows 10+
+      conptyInheritCursor: isWindows && !!opts.inheritCursor,
     });
 
     const entry = { pty: child, cwd, carry: '' };

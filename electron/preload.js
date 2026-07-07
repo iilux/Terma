@@ -29,6 +29,11 @@ contextBridge.exposeInMainWorld('terma', {
     onCwd: (cb) => subscribe('pty:cwd', cb),
   },
 
+  app: {
+    // « continuer en arrière-plan à la fermeture » (réglage persisté côté renderer)
+    setBackgroundMode: (enabled) => ipcRenderer.send('app:setBackgroundMode', !!enabled),
+  },
+
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:maximize'),
@@ -41,6 +46,8 @@ contextBridge.exposeInMainWorld('terma', {
     load: () => ipcRenderer.invoke('session:load'),
     save: (data) => ipcRenderer.invoke('session:save', data),
     clear: () => ipcRenderer.invoke('session:clear'),
+    // le main demande un instantané (ex: repli dans la barre système)
+    onSaveRequest: (cb) => subscribe('session:requestSave', cb),
     // export/import d'un onglet en fichier .termasession (dialogues OS)
     exportTab: (payload, suggestedName) =>
       ipcRenderer.invoke('session:exportTab', { payload, suggestedName }),
