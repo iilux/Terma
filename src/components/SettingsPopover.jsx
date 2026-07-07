@@ -218,7 +218,7 @@ export default function SettingsPopover({
           </button>
         </div>
 
-        <div className="settings-footer">Terma — v0.4.0</div>
+        <div className="settings-footer">Terma — v0.4.1</div>
       </div>
     </div>
   );

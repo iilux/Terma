@@ -54,6 +54,11 @@ function ensureUserDirs() {
   }
 }
 
+/** Nom du fichier d'icône de fenêtre : .ico sur Windows, .png ailleurs. */
+function windowIconName() {
+  return process.platform === 'win32' ? 'icon.ico' : 'icon.png';
+}
+
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1180,
@@ -63,8 +68,8 @@ function createWindow() {
     frame: false, // pas de titlebar OS — on la dessine nous-mêmes
     backgroundColor: '#0d0d0d',
     // En prod l'icône vient de l'exe ; en dev build/ n'est pas packagé,
-    // on la fournit pour la taskbar.
-    ...(isDev ? { icon: path.join(__dirname, '..', 'build', 'icon.png') } : {}),
+    // on la fournit pour la taskbar (le .ico sur Windows pour un rendu net).
+    ...(isDev ? { icon: path.join(__dirname, '..', 'build', windowIconName()) } : {}),
     show: false,
     title: 'Terma',
     webPreferences: {
@@ -138,14 +143,31 @@ function showMainWindow() {
   mainWindow.focus();
 }
 
-/** Crée l'icône de la barre système (une seule fois). */
-async function ensureTray() {
-  if (tray) return;
+/**
+ * Charge l'icône destinée à la barre système. Sur Windows la zone de
+ * notification affiche des icônes 16/32 px : lui passer le PNG 512 px la fait
+ * tomber sur l'icône générique de Windows. On préfère donc le `.ico`
+ * multi-résolutions (Windows y choisit la bonne taille) et on réduit en
+ * dernier recours.
+ */
+async function loadTrayImage() {
+  const buildDir = path.join(__dirname, '..', 'build');
+  const isWin = process.platform === 'win32';
   // En dev l'icône vient de build/ ; en prod build/ n'est pas packagé, on
   // récupère l'icône de l'exe lui-même.
+  const candidates = isWin
+    ? [path.join(buildDir, 'icon.ico'), path.join(buildDir, 'icon.png')]
+    : [path.join(buildDir, 'icon.png')];
   let image = null;
-  const devIcon = path.join(__dirname, '..', 'build', 'icon.png');
-  if (fs.existsSync(devIcon)) image = nativeImage.createFromPath(devIcon);
+  for (const p of candidates) {
+    if (fs.existsSync(p)) {
+      const img = nativeImage.createFromPath(p);
+      if (img && !img.isEmpty()) {
+        image = img;
+        break;
+      }
+    }
+  }
   if (!image || image.isEmpty()) {
     try {
       image = await app.getFileIcon(process.execPath);
@@ -153,6 +175,19 @@ async function ensureTray() {
       image = nativeImage.createEmpty();
     }
   }
+  // Garde-fou : une image trop grande (PNG 512, icône d'exe) s'affiche mal ou
+  // pas du tout dans le tray Windows — on la ramène à une taille standard.
+  if (isWin && !image.isEmpty()) {
+    const { width } = image.getSize();
+    if (width > 32) image = image.resize({ width: 32, height: 32 });
+  }
+  return image;
+}
+
+/** Crée l'icône de la barre système (une seule fois). */
+async function ensureTray() {
+  if (tray) return;
+  const image = await loadTrayImage();
   if (tray) return; // deux appels concurrents (close rapide ×2)
   tray = new Tray(image);
   tray.setToolTip('Terma — sessions actives en arrière-plan');
@@ -452,6 +487,11 @@ ipcMain.on('shell:openExternal', (_e, url) => {
 
 /* ------------------------------ App lifecycle ---------------------------- */
 app.whenReady().then(() => {
+  // Windows associe l'icône de la barre des tâches / du tray à l'AppUserModelID.
+  // Sans lui, Windows retombe sur l'icône générique. Doit valoir l'appId
+  // d'electron-builder (electron-builder.yml → appId).
+  if (process.platform === 'win32') app.setAppUserModelId('com.terma.app');
+
   // Aucun menu OS natif (contrainte : zéro élément natif visible)
   Menu.setApplicationMenu(null);
 

@@ -212,4 +212,4 @@ npm run dist             # Générer le .exe via electron-builder
 - Pose-moi des questions si quelque chose est ambigu avant de coder.
 - Pour tout ce que tu ne peux pas générer (icône `.ico`, polices), donne-moi des instructions claires.
 - Priorise la lisibilité et la maintenabilité du code sur la concision.
-- Dans les commits et les pull requests, Claude ne se met **pas** en co-auteur (pas de ligne `Co-Authored-By: Claude`, pas de mention « Generated with Claude Code »).
+- Les **commits, pull requests et notes de release** sont toujours rédigés **en anglais**, et Claude ne se met **jamais** en co-auteur (pas de ligne `Co-Authored-By: Claude`, pas de mention « Generated with Claude Code »).
