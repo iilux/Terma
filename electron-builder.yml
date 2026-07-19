@@ -45,6 +45,9 @@ mac:
   category: public.app-category.developer-tools
   # electron-builder convertit le PNG 512px en .icns automatiquement.
   icon: build/icon.png
+  # Arch toujours visible dans le nom du fichier : sans ça le DMG Intel
+  # s'appelle juste « Terma-x.y.z.dmg » et se confond avec l'arm64.
+  artifactName: ${productName}-${version}-${arch}.${ext}
   # Pas de compte Apple Developer : app non signée/notarisée. Au premier
   # lancement, Gatekeeper exige clic droit → Ouvrir (documenté dans le README).
   identity: null
