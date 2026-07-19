@@ -5,6 +5,7 @@ import { SerializeAddon } from '@xterm/addon-serialize';
 import { SearchAddon } from '@xterm/addon-search';
 import { WebLinksAddon } from '@xterm/addon-web-links';
 import { WebglAddon } from '@xterm/addon-webgl';
+import { isMac } from '../platform.js';
 
 const RESTORE_BANNER = '\x1b[90m\x1b[3m— session restaurée —\x1b[0m\r\n\r\n';
 
@@ -176,8 +177,13 @@ export default function TerminalView({
       if (e.type !== 'keydown') return true;
       const ctrl = e.ctrlKey;
       const shift = e.shiftKey;
+      // touche de commande de l'app : Cmd sur mac, Ctrl ailleurs
+      const mod = isMac ? e.metaKey : e.ctrlKey;
       const k = e.key.toLowerCase();
 
+      // Ctrl+Shift+C/V : copier/coller, convention terminal, sur TOUTES les
+      // plateformes. Sur mac, Cmd+C/Cmd+V passent par les rôles du menu natif
+      // (main.js) et sont gérés nativement par xterm — rien à faire ici.
       if (ctrl && shift && k === 'c') {
         const sel = term.getSelection();
         if (sel) window.terma?.clipboard.write(sel);
@@ -191,14 +197,14 @@ export default function TerminalView({
       }
       // Raccourcis gérés par le handler global (App) : on empêche juste xterm
       // de transmettre la touche au pty (l'event continue de bubbler vers window).
-      if (ctrl && !shift && k === 't') return false;
-      if (ctrl && !shift && k === 'w') return false;
-      if (ctrl && shift && k === 'w') return false;
-      if (ctrl && shift && k === 'd') return false;
-      if (ctrl && shift && k === 'b') return false;
+      if (mod && !shift && k === 't') return false;
+      if (mod && !shift && k === 'w') return false;
+      if (mod && shift && k === 'w') return false;
+      if (mod && shift && k === 'd') return false;
+      if (mod && shift && k === 'b') return false;
       if (ctrl && k === 'tab') return false;
-      if (ctrl && !shift && /^[1-9]$/.test(k)) return false;
-      if (ctrl && shift && k === 'f') return false;
+      if (mod && !shift && /^[1-9]$/.test(k)) return false;
+      if (mod && shift && k === 'f') return false;
       return true;
     });
 

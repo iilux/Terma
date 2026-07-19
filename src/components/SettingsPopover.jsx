@@ -9,6 +9,7 @@ import {
   Gamepad2,
   Moon,
 } from 'lucide-react';
+import { isMac } from '../platform.js';
 
 /** Dernier segment d'un chemin (affichage du nom de l'image de fond). */
 function fileNameOf(p) {
@@ -208,8 +209,9 @@ export default function SettingsPopover({
             </button>
           </label>
           <div className="settings-hint">
-            Fermer la fenêtre garde les shells actifs dans la barre système —
-            rouvrir Terma reprend exactement où vous en étiez.
+            {isMac
+              ? 'Fermer la fenêtre garde les shells actifs — Terma reste dans le Dock et rouvrir reprend exactement où vous en étiez.'
+              : 'Fermer la fenêtre garde les shells actifs dans la barre système — rouvrir Terma reprend exactement où vous en étiez.'}
           </div>
 
           <button className="settings-action danger" onClick={onClearSession}>

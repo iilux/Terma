@@ -32,3 +32,25 @@ nsis:
   allowToChangeInstallationDirectory: true
   createDesktopShortcut: true
   createStartMenuShortcut: true
+
+mac:
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+  category: public.app-category.developer-tools
+  # electron-builder convertit le PNG 512px en .icns automatiquement.
+  icon: build/icon.png
+  # Arch toujours visible dans le nom du fichier : sans ça le DMG Intel
+  # s'appelle juste « Terma-x.y.z.dmg » et se confond avec l'arm64.
+  artifactName: ${productName}-${version}-${arch}.${ext}
+  # Pas de compte Apple Developer : app non signée/notarisée. Au premier
+  # lancement, Gatekeeper exige clic droit → Ouvrir (documenté dans le README).
+  identity: null
+
+dmg:
+  writeUpdateInfo: false

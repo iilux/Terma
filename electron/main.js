@@ -7,6 +7,7 @@ const { PtyManager } = require('./pty-manager');
 const { IntegrationManager } = require('./integrations');
 
 const isDev = !app.isPackaged;
+const isMac = process.platform === 'darwin';
 
 let mainWindow = null;
 let ptyManager = null;
@@ -65,7 +66,12 @@ function createWindow() {
     height: 760,
     minWidth: 640,
     minHeight: 380,
-    frame: false, // pas de titlebar OS — on la dessine nous-mêmes
+    // Pas de titlebar OS — on la dessine nous-mêmes. Sur macOS on conserve les
+    // « feux » natifs (fermer/réduire/agrandir), incrustés dans la titlebar
+    // custom (40px de haut → feux centrés), convention attendue sur Mac.
+    ...(isMac
+      ? { titleBarStyle: 'hiddenInset', trafficLightPosition: { x: 12, y: 14 } }
+      : { frame: false }),
     backgroundColor: '#0d0d0d',
     // En prod l'icône vient de l'exe ; en dev build/ n'est pas packagé,
     // on la fournit pour la taskbar (le .ico sur Windows pour un rendu net).
@@ -97,7 +103,11 @@ function createWindow() {
   mainWindow.webContents.on('before-input-event', (event, input) => {
     if (input.type !== 'keyDown') return;
     const key = (input.key || '').toLowerCase();
-    if (key === 'f12' || (input.control && input.shift && key === 'i')) {
+    if (
+      key === 'f12' ||
+      (input.control && input.shift && key === 'i') ||
+      (isMac && input.meta && input.alt && key === 'i')
+    ) {
       mainWindow.webContents.toggleDevTools();
       event.preventDefault();
     }
@@ -111,16 +121,18 @@ function createWindow() {
   mainWindow.on('maximize', sendMaxState);
   mainWindow.on('unmaximize', sendMaxState);
 
-  // Mode arrière-plan : le X ne ferme pas, il replie dans la barre système
-  // (fenêtre cachée, renderer et ptys intacts). Vraie fermeture uniquement via
-  // « Quitter » du tray, un quit système, ou si le réglage est désactivé.
+  // Mode arrière-plan : le X ne ferme pas, il replie (fenêtre cachée, renderer
+  // et ptys intacts). Sur Windows le repli va dans la barre système ; sur macOS
+  // l'app reste simplement dans le Dock (comportement natif, pas de tray).
+  // Vraie fermeture uniquement via « Quitter » (tray/Cmd+Q), un quit système,
+  // ou si le réglage est désactivé.
   mainWindow.on('close', (e) => {
     if (backgroundMode && !isQuitting) {
       e.preventDefault();
       // dernier instantané de session avant de disparaître de la taskbar
       mainWindow.webContents.send('session:requestSave');
       mainWindow.hide();
-      ensureTray();
+      if (!isMac) ensureTray();
       return;
     }
     // Vraie fermeture : on tue les shells, sinon les process PowerShell
@@ -492,8 +504,32 @@ app.whenReady().then(() => {
   // d'electron-builder (electron-builder.yml → appId).
   if (process.platform === 'win32') app.setAppUserModelId('com.terma.app');
 
-  // Aucun menu OS natif (contrainte : zéro élément natif visible)
-  Menu.setApplicationMenu(null);
+  // Aucun menu OS natif sur Windows/Linux (contrainte : zéro élément natif
+  // visible). Sur macOS la barre de menus système existe de toute façon : un
+  // menu minimal fournit les raccourcis attendus (Cmd+Q, Cmd+H, Cmd+C/V dans
+  // les champs texte, Cmd+M). Pas de rôle « close » : Cmd+W est géré par le
+  // renderer (fermer l'onglet/panneau), il ne doit pas fermer la fenêtre.
+  if (isMac) {
+    Menu.setApplicationMenu(
+      Menu.buildFromTemplate([
+        { role: 'appMenu' },
+        { role: 'editMenu' },
+        { label: 'Fenêtre', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
+      ])
+    );
+  } else {
+    Menu.setApplicationMenu(null);
+  }
+
+  // En dev, l'icône du Dock est celle d'Electron : on pose la nôtre.
+  // (En prod elle vient du bundle .app.)
+  if (isMac && isDev) {
+    try {
+      app.dock.setIcon(path.join(__dirname, '..', 'build', 'icon.png'));
+    } catch (err) {
+      /* cosmétique */
+    }
+  }
 
   ensureUserDirs();
   ptyManager = new PtyManager(
@@ -508,8 +544,11 @@ app.whenReady().then(() => {
 
   createWindow();
 
+  // macOS : clic sur l'icône du Dock — rouvre la fenêtre repliée (mode
+  // arrière-plan) ou en recrée une si tout a été fermé.
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
+    else showMainWindow();
   });
 
   // Deuxième lancement de l'exe pendant que Terma tourne (souvent caché dans

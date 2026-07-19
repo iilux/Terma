@@ -154,6 +154,12 @@ button:focus {
   -webkit-app-region: drag;
 }
 
+/* macOS : place pour les « feux » natifs (titleBarStyle hiddenInset,
+   trafficLightPosition x:12) incrustés à gauche de la titlebar custom. */
+.platform-darwin .titlebar {
+  padding-left: 78px;
+}
+
 .titlebar-brand {
   display: flex;
   align-items: center;
