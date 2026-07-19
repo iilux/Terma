@@ -31,13 +31,15 @@ import { deserializeNode, leavesOf, makeLeaf, findLeaf } from './hooks/paneTree.
 import { useThemes } from './themes/useThemes.js';
 import { normalizeTheme } from './themes/themeHost.js';
 import { DEFAULT_THEME } from './themes/builtins.js';
+import { platform, isMod, shortcut } from './platform.js';
 
 const DEFAULT_SETTINGS = {
   restoreSession: true,
   // fermer la fenêtre replie Terma dans la barre système (shells toujours vivants)
   keepInBackground: true,
   themeId: DEFAULT_THEME.id,
-  fontFamily: "'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Courier New', monospace",
+  fontFamily:
+    "'JetBrains Mono', 'Cascadia Code', 'Consolas', 'Menlo', 'Monaco', 'Courier New', monospace",
   fontSize: 14,
   cursorStyle: 'bar',
   cursorBlink: true,
@@ -418,8 +420,19 @@ export default function App() {
   /* -------------------------- raccourcis clavier -------------------------- */
   useEffect(() => {
     const onKey = (e) => {
-      if (!e.ctrlKey) return;
       const k = e.key.toLowerCase();
+
+      // Ctrl+Tab / Ctrl+Shift+Tab : cycle des onglets — Ctrl sur TOUTES les
+      // plateformes (convention onglets, y compris sur mac).
+      if (e.ctrlKey && k === 'tab') {
+        e.preventDefault();
+        if (e.shiftKey) prevTab();
+        else nextTab();
+        return;
+      }
+
+      // Autres raccourcis : touche de commande de la plateforme (Cmd/Ctrl)
+      if (!isMod(e)) return;
 
       if (!e.shiftKey && k === 't') {
         e.preventDefault();
@@ -439,10 +452,6 @@ export default function App() {
       } else if (e.shiftKey && k === 'f') {
         e.preventDefault();
         setSearchOpen((v) => !v);
-      } else if (k === 'tab') {
-        e.preventDefault();
-        if (e.shiftKey) prevTab();
-        else nextTab();
       } else if (!e.shiftKey && /^[1-9]$/.test(k)) {
         e.preventDefault();
         const n = parseInt(k, 10);
@@ -482,7 +491,7 @@ export default function App() {
       return [
         {
           label: 'Nouvel onglet',
-          shortcut: 'Ctrl+T',
+          shortcut: shortcut('Ctrl+T'),
           icon: <Plus size={14} strokeWidth={1.5} />,
           onClick: () => openTab(),
         },
@@ -495,20 +504,20 @@ export default function App() {
         { separator: true },
         {
           label: 'Diviser à droite',
-          shortcut: 'Ctrl+Shift+D',
+          shortcut: shortcut('Ctrl+Shift+D'),
           icon: <Columns2 size={14} strokeWidth={1.5} />,
           onClick: () => splitActive('row'),
         },
         {
           label: 'Diviser en bas',
-          shortcut: 'Ctrl+Shift+B',
+          shortcut: shortcut('Ctrl+Shift+B'),
           icon: <Rows2 size={14} strokeWidth={1.5} />,
           onClick: () => splitActive('col'),
         },
         { separator: true },
         {
           label: 'Rechercher',
-          shortcut: 'Ctrl+Shift+F',
+          shortcut: shortcut('Ctrl+Shift+F'),
           icon: <Search size={14} strokeWidth={1.5} />,
           onClick: () => setSearchOpen(true),
         },
@@ -545,13 +554,13 @@ export default function App() {
       return [
         {
           label: 'Copier',
-          shortcut: 'Ctrl+Shift+C',
+          shortcut: shortcut('Ctrl+Shift+C', '⌘C'),
           icon: <Copy size={14} strokeWidth={1.5} />,
           onClick: () => h?.copy(),
         },
         {
           label: 'Coller',
-          shortcut: 'Ctrl+Shift+V',
+          shortcut: shortcut('Ctrl+Shift+V', '⌘V'),
           icon: <ClipboardPaste size={14} strokeWidth={1.5} />,
           onClick: () => h?.paste(),
         },
@@ -569,21 +578,21 @@ export default function App() {
         { separator: true },
         {
           label: 'Diviser à droite',
-          shortcut: 'Ctrl+Shift+D',
+          shortcut: shortcut('Ctrl+Shift+D'),
           icon: <Columns2 size={14} strokeWidth={1.5} />,
           disabled: !tab,
           onClick: () => tab && splitPane(tab.id, menu.paneId, 'row'),
         },
         {
           label: 'Diviser en bas',
-          shortcut: 'Ctrl+Shift+B',
+          shortcut: shortcut('Ctrl+Shift+B'),
           icon: <Rows2 size={14} strokeWidth={1.5} />,
           disabled: !tab,
           onClick: () => tab && splitPane(tab.id, menu.paneId, 'col'),
         },
         {
           label: isSplit ? 'Fermer le panneau' : "Fermer l'onglet",
-          shortcut: 'Ctrl+W',
+          shortcut: shortcut('Ctrl+W'),
           icon: <X size={14} strokeWidth={1.5} />,
           disabled: !tab,
           onClick: () => tab && closePane(tab.id, menu.paneId),
@@ -591,13 +600,13 @@ export default function App() {
         { separator: true },
         {
           label: 'Rechercher',
-          shortcut: 'Ctrl+Shift+F',
+          shortcut: shortcut('Ctrl+Shift+F'),
           icon: <Search size={14} strokeWidth={1.5} />,
           onClick: () => setSearchOpen(true),
         },
         {
           label: 'Nouvel onglet',
-          shortcut: 'Ctrl+T',
+          shortcut: shortcut('Ctrl+T'),
           icon: <Plus size={14} strokeWidth={1.5} />,
           onClick: () => openTab(),
         },
@@ -608,7 +617,7 @@ export default function App() {
     return [
       {
         label: 'Nouvel onglet',
-        shortcut: 'Ctrl+T',
+        shortcut: shortcut('Ctrl+T'),
         icon: <Plus size={14} strokeWidth={1.5} />,
         onClick: () => openTab(),
       },
@@ -631,7 +640,7 @@ export default function App() {
       { separator: true },
       {
         label: "Fermer l'onglet",
-        shortcut: 'Ctrl+Shift+W',
+        shortcut: shortcut('Ctrl+Shift+W'),
         icon: <X size={14} strokeWidth={1.5} />,
         onClick: () => closeTab(menu.targetId),
       },
@@ -660,7 +669,7 @@ export default function App() {
 
   return (
     <div
-      className={'app' + (hasBgImage ? ' has-bg' : '')}
+      className={'app platform-' + platform + (hasBgImage ? ' has-bg' : '')}
       style={hasBgImage ? { '--bg-blur': `${settings.backgroundBlur || 0}px` } : undefined}
     >
       {hasBgImage && (

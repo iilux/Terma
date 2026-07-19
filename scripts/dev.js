@@ -56,6 +56,9 @@ const vite = spawn(process.execPath, [viteBin], {
   cwd: root,
   stdio: 'inherit',
   env: process.env,
+  // POSIX : chaque enfant devient chef de son groupe de process, condition
+  // pour que killTree (process.kill(-pid)) atteigne tout l'arbre.
+  detached: !isWin,
 });
 vite.on('close', (code) => shutdown(code)); // si Vite meurt, on arrête tout
 
@@ -82,7 +85,12 @@ function startElectron() {
   delete env.ELECTRON_RUN_AS_NODE;
 
   const electronPath = require('electron'); // sous Node : chemin du binaire
-  electron = spawn(electronPath, ['.'], { cwd: root, stdio: 'inherit', env });
+  electron = spawn(electronPath, ['.'], {
+    cwd: root,
+    stdio: 'inherit',
+    env,
+    detached: !isWin, // voir spawn de Vite
+  });
 
   // fermer la fenêtre Electron => Electron s'arrête => on coupe Vite et on sort
   electron.on('close', (code) => shutdown(code));

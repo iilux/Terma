@@ -2,7 +2,7 @@
 
 # ❯_ Terma
 
-**A modern desktop terminal emulator for Windows.**
+**A modern desktop terminal emulator for Windows and macOS.**
 
 Built with Electron · React · Vite · xterm.js · node-pty
 
@@ -46,14 +46,15 @@ To make it work on your build:
 | Renderer | React 19 + Vite 8 |
 | Terminal | xterm.js 6 (+ fit, search, serialize, web-links, webgl addons) |
 | Pseudo-terminal | node-pty 1.1 (native module) |
-| Packaging | electron-builder (NSIS x64) |
+| Packaging | electron-builder (NSIS x64 on Windows, DMG arm64/x64 on macOS) |
 
 The architecture enforces strict isolation: `contextIsolation: true`, `nodeIntegration: false`, IPC exposed through `window.terma` (contextBridge in `electron/preload.js`).
 
 ## Requirements
 
 - **Node.js** 18+ and npm
-- **Windows** with native build tools (Visual Studio Build Tools + Python) to compile node-pty
+- **Windows**: native build tools (Visual Studio Build Tools + Python) to compile node-pty
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`) to compile node-pty
 
 ## Installation
 
@@ -76,12 +77,14 @@ A custom launcher (`scripts/dev.js`) starts Vite then Electron and guarantees a 
 ```bash
 npm run build      # build the renderer (Vite)
 npm run icons      # generate build/icon.png + build/icon.ico from build/icon.svg
-npm run dist       # build + .exe installer (NSIS) in release/
+npm run dist       # build the installer for the current OS in release/
 ```
 
-The installer produces a Windows x64 `.exe` with installation-directory selection and desktop / Start-menu shortcuts.
+On Windows this produces an x64 NSIS `.exe` with installation-directory selection and desktop / Start-menu shortcuts. On macOS it produces a `.dmg` (Apple Silicon + Intel); the app is unsigned (no Apple Developer account), so the first launch requires right-click → Open to get past Gatekeeper.
 
 ## Keyboard shortcuts
+
+On macOS, `Cmd` replaces `Ctrl` for app shortcuts (`Cmd+T`, `Cmd+W`, `Cmd+Shift+D`…) and copy/paste is also available as `Cmd+C` / `Cmd+V`; tab cycling stays on `Ctrl+Tab`.
 
 | Shortcut | Action |
 |---|---|
@@ -108,7 +111,7 @@ scripts/           dev.js (launcher), generate-icons.js
 build/             icon.svg → icon.png / icon.ico
 ```
 
-User data (session, themes, extensions) is stored in `%APPDATA%\terma`.
+User data (session, themes, extensions) is stored in `%APPDATA%\terma` on Windows and `~/Library/Application Support/terma` on macOS. On macOS, shell integration (current-directory tracking via OSC 7) is injected through generated zsh/bash shims in that folder — your own shell config files are never modified.
 
 ## License
 

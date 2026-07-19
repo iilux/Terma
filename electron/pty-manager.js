@@ -31,7 +31,74 @@ const POWERSHELL_INTEGRATION = [
   '}',
 ].join('\n');
 
-/** Détecte le shell par défaut de l'OS (PowerShell sur Windows, fallback cmd). */
+/**
+ * Intégration shell POSIX (macOS/Linux) : même principe que PowerShell — un
+ * hook de prompt émet OSC 7 à chaque affichage du prompt. AUCUN fichier de
+ * l'utilisateur n'est modifié : tout vit dans userData/shell-integration.
+ *
+ * zsh : on ne peut pas passer un rc en argument, mais zsh lit ses fichiers de
+ * démarrage dans $ZDOTDIR. On pointe donc ZDOTDIR vers un dossier de « shims »
+ * (.zshenv/.zprofile/.zshrc) qui sourcent chacun le fichier homonyme de
+ * l'utilisateur (via _TERMA_USER_ZDOTDIR) puis, dans .zshrc, ajoutent le hook
+ * precmd et RESTAURENT le ZDOTDIR d'origine — .zlogin et tout shell zsh
+ * imbriqué relisent ensuite la config utilisateur normale. C'est l'approche
+ * de VS Code et kitty.
+ */
+const ZSH_SHIM_SOURCE_USER = (file) =>
+  [
+    '# Généré par Terma (intégration shell) — ne pas éditer.',
+    '_terma_zdotdir="$ZDOTDIR"',
+    `if [[ -f "$_TERMA_USER_ZDOTDIR/${file}" ]]; then`,
+    '  ZDOTDIR="$_TERMA_USER_ZDOTDIR"',
+    `  . "$_TERMA_USER_ZDOTDIR/${file}"`,
+    // l'utilisateur peut déplacer sa config en changeant ZDOTDIR (ex: .zshenv)
+    '  _TERMA_USER_ZDOTDIR="$ZDOTDIR"',
+    '  ZDOTDIR="$_terma_zdotdir"',
+    'fi',
+  ].join('\n') + '\n';
+
+const ZSH_SHIM_ZSHRC_HOOK = [
+  '',
+  '# Hook de prompt : signale le répertoire courant à Terma via OSC 7.',
+  'autoload -Uz add-zsh-hook',
+  '__terma_report_cwd() { printf \'\\033]7;file://%s%s\\033\\\\\' "${HOST:-}" "$PWD" }',
+  'add-zsh-hook precmd __terma_report_cwd',
+  '__terma_report_cwd',
+  '',
+  '# /etc/zshrc (macOS) fixe HISTFILE d’après ZDOTDIR avant nos shims : si',
+  '# l’utilisateur ne l’a pas redéfini, on le ramène vers SON historique.',
+  'if [[ "$HISTFILE" == "$_terma_zdotdir/.zsh_history" ]]; then',
+  '  HISTFILE="${_TERMA_USER_ZDOTDIR:-$HOME}/.zsh_history"',
+  'fi',
+  '',
+  '# Fin du démarrage piloté par Terma : on rend son ZDOTDIR à l’utilisateur.',
+  'if [[ -n "$_TERMA_USER_ZDOTDIR" && "$_TERMA_USER_ZDOTDIR" != "$HOME" ]]; then',
+  '  ZDOTDIR="$_TERMA_USER_ZDOTDIR"',
+  'else',
+  '  unset ZDOTDIR',
+  'fi',
+  'unset _terma_zdotdir _TERMA_USER_ZDOTDIR',
+  '',
+].join('\n');
+
+// bash : --rcfile remplace ~/.bashrc, donc notre fichier rejoue d'abord la
+// chaîne de démarrage login classique (profile) puis ajoute le hook de prompt.
+const BASH_INTEGRATION = [
+  '# Généré par Terma (intégration shell) — ne pas éditer.',
+  '[ -f /etc/profile ] && . /etc/profile',
+  'for _terma_f in "$HOME/.bash_profile" "$HOME/.bash_login" "$HOME/.profile"; do',
+  '  if [ -f "$_terma_f" ]; then . "$_terma_f"; break; fi',
+  'done',
+  'unset _terma_f',
+  '',
+  '# Hook de prompt : signale le répertoire courant à Terma via OSC 7.',
+  '__terma_report_cwd() { printf \'\\033]7;file://%s%s\\033\\\\\' "${HOSTNAME:-}" "$PWD"; }',
+  'PROMPT_COMMAND="__terma_report_cwd${PROMPT_COMMAND:+; $PROMPT_COMMAND}"',
+  '__terma_report_cwd',
+  '',
+].join('\n');
+
+/** Détecte le shell par défaut de l'OS (PowerShell sur Windows, sinon $SHELL). */
 function detectDefaultShell() {
   if (isWindows) {
     const pwsh = process.env.ProgramFiles
@@ -48,21 +115,33 @@ function detectDefaultShell() {
     if (fs.existsSync(winPwsh)) return winPwsh;
     return process.env.COMSPEC || 'cmd.exe';
   }
-  return process.env.SHELL || '/bin/bash';
+  return process.env.SHELL || (process.platform === 'darwin' ? '/bin/zsh' : '/bin/bash');
 }
 
-/** Construit les arguments de lancement selon le shell. */
-function buildArgs(shellPath, integrationScriptPath) {
+/**
+ * Construit les arguments de lancement selon le shell.
+ * @param {string} shellPath
+ * @param {{ powershell: string|null, bashRc: string|null }} integration
+ */
+function buildArgs(shellPath, integration) {
   const base = path.basename(shellPath).toLowerCase();
-  if (base === 'powershell.exe' || base === 'pwsh.exe') {
+  if (base === 'powershell.exe' || base === 'pwsh.exe' || base === 'pwsh') {
     const args = ['-NoLogo'];
-    if (integrationScriptPath) {
+    if (integration.powershell) {
       // -NoExit garde la session interactive après l'exécution du script d'intégration
-      args.push('-NoExit', '-File', integrationScriptPath);
+      args.push('-NoExit', '-File', integration.powershell);
     }
     return args;
   }
-  return [];
+  if (isWindows) return []; // cmd.exe et autres shells Windows
+  if (base === 'bash' && integration.bashRc) {
+    // pas de -l : le rcfile rejoue lui-même la chaîne login (voir BASH_INTEGRATION)
+    return ['--rcfile', integration.bashRc];
+  }
+  // Shell login : une app GUI (macOS surtout) hérite d'un PATH minimal — le
+  // login shell recharge le vrai environnement (Homebrew, nvm…). zsh reçoit
+  // son intégration via ZDOTDIR (env), posé dans create().
+  return ['-l'];
 }
 
 class PtyManager {
@@ -73,11 +152,13 @@ class PtyManager {
   constructor(getWindow, integrationDir) {
     this.getWindow = getWindow;
     this.ptys = new Map(); // id -> { pty, cwd, carry }
-    this.integrationScriptPath = null;
-    this._writeIntegrationScript(integrationDir);
+    this.integrationScriptPath = null; // PowerShell (.ps1)
+    this.bashRcPath = null; // bash (--rcfile)
+    this.zshDotDir = null; // zsh (ZDOTDIR de shims)
+    this._writeIntegrationScripts(integrationDir);
   }
 
-  _writeIntegrationScript(dir) {
+  _writeIntegrationScripts(dir) {
     try {
       fs.mkdirSync(dir, { recursive: true });
       const p = path.join(dir, 'powershell-integration.ps1');
@@ -86,6 +167,33 @@ class PtyManager {
     } catch (err) {
       console.error("[pty] impossible d'écrire le script d'intégration:", err);
       this.integrationScriptPath = null;
+    }
+
+    if (isWindows) return;
+
+    // Shims POSIX — uniquement dans userData, jamais dans le HOME de l'utilisateur.
+    try {
+      const bashRc = path.join(dir, 'bash-integration.bash');
+      fs.writeFileSync(bashRc, BASH_INTEGRATION, 'utf8');
+      this.bashRcPath = bashRc;
+    } catch (err) {
+      console.error("[pty] intégration bash impossible:", err);
+      this.bashRcPath = null;
+    }
+    try {
+      const zshDir = path.join(dir, 'zsh');
+      fs.mkdirSync(zshDir, { recursive: true });
+      fs.writeFileSync(path.join(zshDir, '.zshenv'), ZSH_SHIM_SOURCE_USER('.zshenv'), 'utf8');
+      fs.writeFileSync(path.join(zshDir, '.zprofile'), ZSH_SHIM_SOURCE_USER('.zprofile'), 'utf8');
+      fs.writeFileSync(
+        path.join(zshDir, '.zshrc'),
+        ZSH_SHIM_SOURCE_USER('.zshrc') + ZSH_SHIM_ZSHRC_HOOK,
+        'utf8'
+      );
+      this.zshDotDir = zshDir;
+    } catch (err) {
+      console.error("[pty] intégration zsh impossible:", err);
+      this.zshDotDir = null;
     }
   }
 
@@ -108,17 +216,32 @@ class PtyManager {
 
     const shellPath = opts.shell || detectDefaultShell();
     const base = path.basename(shellPath).toLowerCase();
-    const usesIntegration = base === 'powershell.exe' || base === 'pwsh.exe';
-    const args = buildArgs(shellPath, usesIntegration ? this.integrationScriptPath : null);
+    const args = buildArgs(shellPath, {
+      powershell: this.integrationScriptPath,
+      bashRc: this.bashRcPath,
+    });
 
     const cwd = opts.cwd && fs.existsSync(opts.cwd) ? opts.cwd : os.homedir();
+
+    const env = { ...process.env, TERM: 'xterm-256color' };
+    if (!isWindows) {
+      // Une app GUI n'hérite pas toujours d'une locale : sans LANG, vim/less &
+      // co retombent en ASCII. On ne touche pas à une valeur existante.
+      if (!env.LANG) env.LANG = 'en_US.UTF-8';
+      // Intégration zsh : les shims (voir plus haut) sourcent la config de
+      // l'utilisateur depuis _TERMA_USER_ZDOTDIR puis restaurent son ZDOTDIR.
+      if (base === 'zsh' && this.zshDotDir) {
+        env._TERMA_USER_ZDOTDIR = process.env.ZDOTDIR || os.homedir();
+        env.ZDOTDIR = this.zshDotDir;
+      }
+    }
 
     const child = pty.spawn(shellPath, args, {
       name: 'xterm-256color',
       cols: opts.cols || 80,
       rows: opts.rows || 24,
       cwd,
-      env: { ...process.env, TERM: 'xterm-256color' },
+      env,
       useConpty: isWindows, // ConPTY = rendu ANSI correct sur Windows 10+
       conptyInheritCursor: isWindows && !!opts.inheritCursor,
     });
