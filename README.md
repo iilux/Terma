@@ -86,6 +86,8 @@ On Windows this produces an x64 NSIS `.exe` with installation-directory selectio
 
 On macOS, `Cmd` replaces `Ctrl` for app shortcuts (`Cmd+T`, `Cmd+W`, `Cmd+Shift+D`…) and copy/paste is also available as `Cmd+C` / `Cmd+V`; tab cycling stays on `Ctrl+Tab`.
 
+The app menu also differs per platform: on Windows/Linux it opens from the Terma logo in the title bar, while on macOS it lives in the system menu bar (Terma / File / Edit / View / Window), with `Cmd+,` for settings — so the title bar starts directly with the tabs, right after the traffic lights.
+
 | Shortcut | Action |
 |---|---|
 | `Ctrl+T` | New tab |

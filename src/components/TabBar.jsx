@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Plus } from 'lucide-react';
 import Tab from './Tab.jsx';
+import { shortcut } from '../platform.js';
 
 /**
  * Barre d'onglets façon Chrome : liste scrollable + bouton « + ».
@@ -72,7 +73,7 @@ export default function TabBar({
       </div>
       <button
         className="tab-add"
-        title="Nouvel onglet (Ctrl+T)"
+        title={`Nouvel onglet (${shortcut('Ctrl+T')})`}
         aria-label="Nouvel onglet"
         onClick={() => onNewTab()}
       >

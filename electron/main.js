@@ -237,6 +237,113 @@ async function ensureTray() {
   }
 }
 
+/* --------------------------- menu natif macOS ---------------------------- */
+// Sur macOS la barre de menus système est incontournable : plutôt que de la
+// laisser quasi vide, elle porte le menu de l'application — celui qui, sur
+// Windows/Linux, s'ouvre en cliquant le logo Terma dans la titlebar (ce logo
+// n'est donc pas rendu sur mac). Chaque item envoie une action au renderer,
+// qui exécute exactement le même code que le menu custom.
+//
+// ⚠ Les accélérateurs déclarés ici sont enregistrés auprès de macOS : sur mac,
+// c'est le menu qui POSSÈDE ces raccourcis. App.jsx ne doit donc pas les
+// traiter de son côté (sinon l'action partirait deux fois) — les deux listes
+// sont à garder synchronisées.
+
+/** Envoie une action de menu au renderer (fenêtre ramenée au premier plan). */
+function sendMenuAction(name) {
+  if (!mainWindow || mainWindow.isDestroyed()) {
+    // Fenêtre réellement fermée (mode arrière-plan désactivé) : on la recrée.
+    // L'action est perdue — il n'y a pas encore de renderer pour la recevoir.
+    createWindow();
+    return;
+  }
+  if (!mainWindow.isVisible()) showMainWindow();
+  mainWindow.webContents.send('menu:action', name);
+}
+
+function buildMacMenu() {
+  const action = (label, name, accelerator) => ({
+    label,
+    ...(accelerator ? { accelerator } : {}),
+    click: () => sendMenuAction(name),
+  });
+
+  return Menu.buildFromTemplate([
+    {
+      label: 'Terma',
+      submenu: [
+        { role: 'about', label: 'À propos de Terma' },
+        { type: 'separator' },
+        action('Réglages…', 'settings', 'Command+,'),
+        action('Thèmes…', 'themes'),
+        { type: 'separator' },
+        { role: 'services', label: 'Services' },
+        { type: 'separator' },
+        { role: 'hide', label: 'Masquer Terma' },
+        { role: 'hideOthers', label: 'Masquer les autres' },
+        { role: 'unhide', label: 'Tout afficher' },
+        { type: 'separator' },
+        { role: 'quit', label: 'Quitter Terma' },
+      ],
+    },
+    {
+      label: 'Fichier',
+      submenu: [
+        action('Nouvel onglet', 'new-tab', 'Command+T'),
+        action("Dupliquer l'onglet", 'duplicate-tab'),
+        { type: 'separator' },
+        action('Diviser à droite', 'split-right', 'Shift+Command+D'),
+        action('Diviser en bas', 'split-down', 'Shift+Command+B'),
+        { type: 'separator' },
+        action('Importer une session…', 'import-session'),
+        action("Exporter la session de l'onglet…", 'export-session'),
+        { type: 'separator' },
+        // Pas de rôle « close » : Cmd+W ferme le panneau actif (ou l'onglet
+        // s'il n'est pas divisé), jamais la fenêtre.
+        action('Fermer le panneau', 'close-pane', 'Command+W'),
+        action("Fermer l'onglet", 'close-tab', 'Shift+Command+W'),
+      ],
+    },
+    {
+      // Rôles natifs : ce sont eux qui donnent Cmd+C / Cmd+V dans le terminal
+      // (xterm les reçoit nativement) et dans les champs texte de l'app.
+      label: 'Édition',
+      submenu: [
+        { role: 'undo', label: 'Annuler' },
+        { role: 'redo', label: 'Rétablir' },
+        { type: 'separator' },
+        { role: 'cut', label: 'Couper' },
+        { role: 'copy', label: 'Copier' },
+        { role: 'paste', label: 'Coller' },
+        { role: 'selectAll', label: 'Tout sélectionner' },
+      ],
+    },
+    {
+      label: 'Affichage',
+      submenu: [
+        action('Rechercher…', 'search', 'Shift+Command+F'),
+        // DevTools : uniquement en dev dans le menu. En prod le raccourci
+        // manuel (Cmd+Alt+I, cf. before-input-event) reste disponible.
+        ...(isDev
+          ? [
+              { type: 'separator' },
+              { role: 'toggleDevTools', label: 'Outils de développement' },
+            ]
+          : []),
+      ],
+    },
+    {
+      label: 'Fenêtre',
+      submenu: [
+        { role: 'minimize', label: 'Réduire' },
+        { role: 'zoom', label: 'Zoom' },
+        { type: 'separator' },
+        { role: 'front', label: 'Tout ramener au premier plan' },
+      ],
+    },
+  ]);
+}
+
 /* ----------------------------- IPC : fenêtre ----------------------------- */
 ipcMain.on('window:minimize', () => mainWindow?.minimize());
 ipcMain.on('window:maximize', () => {
@@ -505,21 +612,10 @@ app.whenReady().then(() => {
   if (process.platform === 'win32') app.setAppUserModelId('com.terma.app');
 
   // Aucun menu OS natif sur Windows/Linux (contrainte : zéro élément natif
-  // visible). Sur macOS la barre de menus système existe de toute façon : un
-  // menu minimal fournit les raccourcis attendus (Cmd+Q, Cmd+H, Cmd+C/V dans
-  // les champs texte, Cmd+M). Pas de rôle « close » : Cmd+W est géré par le
-  // renderer (fermer l'onglet/panneau), il ne doit pas fermer la fenêtre.
-  if (isMac) {
-    Menu.setApplicationMenu(
-      Menu.buildFromTemplate([
-        { role: 'appMenu' },
-        { role: 'editMenu' },
-        { label: 'Fenêtre', submenu: [{ role: 'minimize' }, { role: 'zoom' }] },
-      ])
-    );
-  } else {
-    Menu.setApplicationMenu(null);
-  }
+  // visible), où le menu de l'app s'ouvre depuis le logo de la titlebar.
+  // Sur macOS la barre de menus système existe de toute façon : c'est elle
+  // qui porte ce menu, à la place du logo (cf. buildMacMenu).
+  Menu.setApplicationMenu(isMac ? buildMacMenu() : null);
 
   // En dev, l'icône du Dock est celle d'Electron : on pose la nôtre.
   // (En prod elle vient du bundle .app.)

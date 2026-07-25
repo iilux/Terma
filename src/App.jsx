@@ -31,7 +31,7 @@ import { deserializeNode, leavesOf, makeLeaf, findLeaf } from './hooks/paneTree.
 import { useThemes } from './themes/useThemes.js';
 import { normalizeTheme } from './themes/themeHost.js';
 import { DEFAULT_THEME } from './themes/builtins.js';
-import { platform, isMod, shortcut } from './platform.js';
+import { platform, isMac, isMod, shortcut } from './platform.js';
 
 const DEFAULT_SETTINGS = {
   restoreSession: true,
@@ -434,6 +434,22 @@ export default function App() {
       // Autres raccourcis : touche de commande de la plateforme (Cmd/Ctrl)
       if (!isMod(e)) return;
 
+      // Cmd/Ctrl+1..9 : aller à l'onglet N — jamais dans le menu natif macOS,
+      // donc traité ici sur toutes les plateformes.
+      if (!e.shiftKey && /^[1-9]$/.test(k)) {
+        e.preventDefault();
+        const n = parseInt(k, 10);
+        if (n === 9) goToIndex(tabsRef.current.length - 1);
+        else goToIndex(n - 1);
+        return;
+      }
+
+      // Sur macOS, les raccourcis qui suivent appartiennent au menu natif
+      // (electron/main.js) : c'est lui qui possède l'accélérateur et déclenche
+      // l'action via `menu:action`. Les traiter aussi ici les exécuterait deux
+      // fois.
+      if (isMac) return;
+
       if (!e.shiftKey && k === 't') {
         e.preventDefault();
         openTab();
@@ -452,11 +468,6 @@ export default function App() {
       } else if (e.shiftKey && k === 'f') {
         e.preventDefault();
         setSearchOpen((v) => !v);
-      } else if (!e.shiftKey && /^[1-9]$/.test(k)) {
-        e.preventDefault();
-        const n = parseInt(k, 10);
-        if (n === 9) goToIndex(tabsRef.current.length - 1);
-        else goToIndex(n - 1);
       }
     };
     window.addEventListener('keydown', onKey);
@@ -467,6 +478,61 @@ export default function App() {
   useEffect(() => {
     if (!searchOpen) activeHandle()?.clearSearch();
   }, [searchOpen, activeHandle]);
+
+  /* ---------------------- menu natif (barre macOS) ------------------------ */
+  // Sur macOS le menu de l'app vit dans la barre de menus système : ses items
+  // (et leurs raccourcis, cf. electron/main.js) arrivent ici sous forme
+  // d'actions et déclenchent exactement le même code que le menu custom.
+  useEffect(() => {
+    const off = window.terma?.menu?.onAction((name) => {
+      switch (name) {
+        case 'new-tab':
+          openTab();
+          break;
+        case 'duplicate-tab':
+          if (activeIdRef.current) duplicateTab(activeIdRef.current);
+          break;
+        case 'split-right':
+          splitActive('row');
+          break;
+        case 'split-down':
+          splitActive('col');
+          break;
+        case 'close-pane':
+          closeActivePane();
+          break;
+        case 'close-tab':
+          if (activeIdRef.current) closeTab(activeIdRef.current);
+          break;
+        case 'search':
+          setSearchOpen(true);
+          break;
+        case 'themes':
+          setThemesOpen(true);
+          break;
+        case 'settings':
+          setSettingsOpen(true);
+          break;
+        case 'import-session':
+          handleImportTab();
+          break;
+        case 'export-session':
+          if (activeIdRef.current) handleExportTab(activeIdRef.current);
+          break;
+        default:
+          break;
+      }
+    });
+    return () => off?.();
+  }, [
+    openTab,
+    duplicateTab,
+    splitActive,
+    closeActivePane,
+    closeTab,
+    handleImportTab,
+    handleExportTab,
+  ]);
 
   /* ------------------------------- menus ---------------------------------- */
 

@@ -34,6 +34,11 @@ contextBridge.exposeInMainWorld('terma', {
     setBackgroundMode: (enabled) => ipcRenderer.send('app:setBackgroundMode', !!enabled),
   },
 
+  menu: {
+    // macOS : items de la barre de menus système (main.js) → actions de l'app
+    onAction: (cb) => subscribe('menu:action', cb),
+  },
+
   window: {
     minimize: () => ipcRenderer.send('window:minimize'),
     toggleMaximize: () => ipcRenderer.send('window:maximize'),

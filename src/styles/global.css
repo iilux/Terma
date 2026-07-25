@@ -155,7 +155,9 @@ button:focus {
 }
 
 /* macOS : place pour les « feux » natifs (titleBarStyle hiddenInset,
-   trafficLightPosition x:12) incrustés à gauche de la titlebar custom. */
+   trafficLightPosition x:12) incrustés à gauche de la titlebar custom.
+   Le logo-menu n'y est pas rendu (menu déporté dans la barre de menus
+   système) : les onglets commencent juste après les feux. */
 .platform-darwin .titlebar {
   padding-left: 78px;
 }

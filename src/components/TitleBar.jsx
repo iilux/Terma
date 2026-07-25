@@ -13,7 +13,9 @@ import { isMac } from '../platform.js';
  *
  * macOS : les « feux » natifs (titleBarStyle hiddenInset) occupent la gauche
  * de la barre (padding via .platform-darwin en CSS) et remplacent les boutons
- * custom Réduire/Agrandir/Fermer, qui ne sont pas rendus.
+ * custom Réduire/Agrandir/Fermer, qui ne sont pas rendus. Le logo-menu non
+ * plus : son menu vit dans la barre de menus système (electron/main.js), donc
+ * la barre commence directement par les onglets, après les feux.
  */
 export default function TitleBar({
   isMaximized,
@@ -36,53 +38,55 @@ export default function TitleBar({
 
   return (
     <div className="titlebar">
-      <div className="titlebar-brand">
-        <button
-          ref={logoRef}
-          className="brand-logo"
-          title="Menu"
-          aria-label="Menu de l'application"
-          aria-haspopup="menu"
-          onClick={openMenu}
-        >
-          <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-            <defs>
-              {/* Noir dominant → accent du thème dans le coin : le logo se
-                  re-teinte automatiquement pour chaque thème (intégré ou perso),
-                  via la variable --accent. Le chevron blanc reste lisible car il
-                  se trouve sur la zone sombre. */}
-              <linearGradient id="terma-logo-grad" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0" stopColor="#100d16" />
-                <stop offset="0.55" stopColor="#100d16" />
-                <stop offset="1" stopColor="var(--accent, #9a6bff)" />
-              </linearGradient>
-            </defs>
-            <rect
-              x="0.75"
-              y="0.75"
-              width="18.5"
-              height="18.5"
-              rx="5.5"
-              fill="url(#terma-logo-grad)"
-            />
-            <path
-              d="M5.6 6.6 L9.2 10 L5.6 13.4"
-              stroke="#ffffff"
-              strokeWidth="1.7"
-              fill="none"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-            <path
-              d="M11.2 13.4 H14.6"
-              stroke="#ffffff"
-              strokeWidth="1.7"
-              strokeLinecap="round"
-            />
-          </svg>
-        </button>
-        <span className="brand-name">Terma</span>
-      </div>
+      {!isMac && (
+        <div className="titlebar-brand">
+          <button
+            ref={logoRef}
+            className="brand-logo"
+            title="Menu"
+            aria-label="Menu de l'application"
+            aria-haspopup="menu"
+            onClick={openMenu}
+          >
+            <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
+              <defs>
+                {/* Noir dominant → accent du thème dans le coin : le logo se
+                    re-teinte automatiquement pour chaque thème (intégré ou perso),
+                    via la variable --accent. Le chevron blanc reste lisible car il
+                    se trouve sur la zone sombre. */}
+                <linearGradient id="terma-logo-grad" x1="0" y1="0" x2="1" y2="1">
+                  <stop offset="0" stopColor="#100d16" />
+                  <stop offset="0.55" stopColor="#100d16" />
+                  <stop offset="1" stopColor="var(--accent, #9a6bff)" />
+                </linearGradient>
+              </defs>
+              <rect
+                x="0.75"
+                y="0.75"
+                width="18.5"
+                height="18.5"
+                rx="5.5"
+                fill="url(#terma-logo-grad)"
+              />
+              <path
+                d="M5.6 6.6 L9.2 10 L5.6 13.4"
+                stroke="#ffffff"
+                strokeWidth="1.7"
+                fill="none"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+              <path
+                d="M11.2 13.4 H14.6"
+                stroke="#ffffff"
+                strokeWidth="1.7"
+                strokeLinecap="round"
+              />
+            </svg>
+          </button>
+          <span className="brand-name">Terma</span>
+        </div>
+      )}
 
       {children}
 
