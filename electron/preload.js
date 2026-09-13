@@ -32,6 +32,13 @@ contextBridge.exposeInMainWorld('terma', {
   app: {
     // « continuer en arrière-plan à la fermeture » (réglage persisté côté renderer)
     setBackgroundMode: (enabled) => ipcRenderer.send('app:setBackgroundMode', !!enabled),
+    // version réelle du package.json : le renderer n'y a pas accès
+    getVersion: () => ipcRenderer.invoke('app:getVersion'),
+  },
+
+  updates: {
+    // lecture du manifeste sur la branche main ; n'installe jamais rien
+    check: () => ipcRenderer.invoke('update:check'),
   },
 
   menu: {

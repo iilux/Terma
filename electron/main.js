@@ -5,6 +5,7 @@ const path = require('path');
 const fs = require('fs');
 const { PtyManager } = require('./pty-manager');
 const { IntegrationManager } = require('./integrations');
+const { checkForUpdate } = require('./updater');
 
 const isDev = !app.isPackaged;
 const isMac = process.platform === 'darwin';
@@ -273,6 +274,7 @@ function buildMacMenu() {
       label: 'Terma',
       submenu: [
         { role: 'about', label: 'À propos de Terma' },
+        action('Rechercher les mises à jour…', 'check-updates'),
         { type: 'separator' },
         action('Réglages…', 'settings', 'Command+,'),
         action('Thèmes…', 'themes'),
@@ -603,6 +605,15 @@ ipcMain.on('presence:update', (_e, payload) => {
 ipcMain.on('shell:openExternal', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
 });
+
+/* --------------------------- IPC : mises à jour -------------------------- */
+// Le renderer ne peut pas lire package.json (contextIsolation) : c'est la
+// seule source de vérité pour la version affichée dans les Réglages.
+ipcMain.handle('app:getVersion', () => app.getVersion());
+
+// Ne rejette jamais : checkForUpdate renvoie { status: 'error' } en cas de
+// réseau coupé ou de manifeste illisible.
+ipcMain.handle('update:check', () => checkForUpdate());
 
 /* ------------------------------ App lifecycle ---------------------------- */
 app.whenReady().then(() => {

@@ -16,6 +16,7 @@ import {
   Columns2,
   Rows2,
   SquareStack,
+  RefreshCw,
 } from 'lucide-react';
 
 import TitleBar from './components/TitleBar.jsx';
@@ -25,8 +26,10 @@ import ContextMenu from './components/ContextMenu.jsx';
 import SettingsPopover from './components/SettingsPopover.jsx';
 import ThemesPanel from './components/ThemesPanel.jsx';
 import SearchBar from './components/SearchBar.jsx';
+import UpdateBanner from './components/UpdateBanner.jsx';
 import { useTabs, newId } from './hooks/useTabs.js';
 import { useSession } from './hooks/useSession.js';
+import { useUpdate } from './hooks/useUpdate.js';
 import { deserializeNode, leavesOf, makeLeaf, findLeaf } from './hooks/paneTree.js';
 import { useThemes } from './themes/useThemes.js';
 import { normalizeTheme } from './themes/themeHost.js';
@@ -45,6 +48,13 @@ const DEFAULT_SETTINGS = {
   cursorBlink: true,
   backgroundImage: null, // chemin de l'image de fond (optionnelle)
   backgroundBlur: 8, // flou en px (0 = net)
+  // Vérification de mise à jour : un GET anonyme sur un fichier public du
+  // dépôt, au plus une fois par 24 h. Aucune donnée envoyée, rien n'est
+  // installé automatiquement — d'où l'activation par défaut, contrairement
+  // aux intégrations ci-dessous qui, elles, publient quelque chose.
+  checkUpdates: true,
+  lastUpdateCheck: 0, // horodatage de la dernière vérification
+  dismissedUpdate: null, // version écartée via « Plus tard »
   // Intégrations optionnelles : TOUJOURS désactivées par défaut (opt-in).
   integrations: {
     discordRpc: { enabled: false, showTabName: false },
@@ -160,6 +170,10 @@ export default function App() {
     const t = setTimeout(() => setToast(null), 4000);
     return () => clearTimeout(t);
   }, [toast]);
+
+  /* ---------------------------- mises à jour ------------------------------ */
+  const patchSettings = useCallback((patch) => setSettings((s) => ({ ...s, ...patch })), []);
+  const update = useUpdate({ booted, settings, patchSettings, showToast });
 
   /* ----------------------------- démarrage ------------------------------- */
   useEffect(() => {
@@ -513,6 +527,9 @@ export default function App() {
         case 'settings':
           setSettingsOpen(true);
           break;
+        case 'check-updates':
+          update.check({ silent: false });
+          break;
         case 'import-session':
           handleImportTab();
           break;
@@ -532,6 +549,7 @@ export default function App() {
     closeTab,
     handleImportTab,
     handleExportTab,
+    update.check,
   ]);
 
   /* ------------------------------- menus ---------------------------------- */
@@ -605,6 +623,11 @@ export default function App() {
           onClick: () => activeTab && handleExportTab(activeTab.id),
         },
         { separator: true },
+        {
+          label: 'Rechercher les mises à jour…',
+          icon: <RefreshCw size={14} strokeWidth={1.5} />,
+          onClick: () => update.check({ silent: false }),
+        },
         {
           label: 'Paramètres',
           icon: <Settings size={14} strokeWidth={1.5} />,
@@ -806,6 +829,9 @@ export default function App() {
         <SettingsPopover
           settings={settings}
           integrationStatus={integrationStatus}
+          appVersion={update.currentVersion}
+          updateChecking={update.checking}
+          onCheckUpdates={() => update.check({ silent: false })}
           onChange={setSettings}
           onClearSession={handleClearSession}
           onPickBackground={handlePickBackground}
@@ -833,6 +859,14 @@ export default function App() {
             setPreviewTheme(null);
             setThemesOpen(false);
           }}
+        />
+      )}
+
+      {update.available && (
+        <UpdateBanner
+          version={update.available.latestVersion}
+          onDownload={update.download}
+          onDismiss={update.dismiss}
         />
       )}
 

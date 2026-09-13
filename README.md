@@ -22,6 +22,7 @@ Terma is a minimal, customizable terminal emulator: tabs, split panes, declarati
 - **Search** in the scrollback buffer (`Ctrl+Shift+F`), clickable links, copy/paste.
 - **WebGL rendering** via xterm.js for smooth scrolling.
 - **Integrations (opt-in)** — optional modules, all disabled by default. First one: Discord Rich Presence (see below).
+- **Update check** — once a day at most, Terma reads the latest published version from its own `main` branch and offers a download link. It never downloads or installs anything by itself, and the check can be turned off in Settings.
 
 ## Integrations
 
@@ -82,6 +83,24 @@ npm run dist       # build the installer for the current OS in release/
 
 On Windows this produces an x64 NSIS `.exe` with installation-directory selection and desktop / Start-menu shortcuts. On macOS it produces a `.dmg` (Apple Silicon + Intel); the app is unsigned (no Apple Developer account), so the first launch requires right-click → Open to get past Gatekeeper.
 
+### Releasing
+
+Terma checks for updates by reading `latest.json` from the `main` branch — so **the order of
+these steps matters**. Committing the manifest first would tell every user about a version whose
+binaries do not exist yet.
+
+1. Bump `version` in `package.json`.
+2. Build on both operating systems (`npm run dist`) — there is no cross-build and no CI.
+3. Create the GitHub release, tag `vX.Y.Z`, and upload all the artifacts:
+   `Terma Setup X.Y.Z.exe`, `Terma-X.Y.Z-arm64.dmg`, `Terma-X.Y.Z-x64.dmg`.
+4. **Then** update `latest.json` on `main` — `version`, `releaseUrl` and every `downloads` URL —
+   and commit it. Existing installs pick it up within a day.
+
+The update check itself never downloads or installs anything: it compares version numbers and,
+if a newer one exists, offers a button that opens the release in the user's browser. Auto-update
+is deliberately not implemented — Squirrel.Mac refuses to update an unsigned app, and the macOS
+build is unsigned, so it would only ever work on Windows.
+
 ## Keyboard shortcuts
 
 On macOS, `Cmd` replaces `Ctrl` for app shortcuts (`Cmd+T`, `Cmd+W`, `Cmd+Shift+D`…) and copy/paste is also available as `Cmd+C` / `Cmd+V`; tab cycling stays on `Ctrl+Tab`.
@@ -103,14 +122,15 @@ The app menu also differs per platform: on Windows/Linux it opens from the Terma
 ## Project structure
 
 ```
-electron/          Main process (main, preload, pty-manager)
+electron/          Main process (main, preload, pty-manager, updater)
 src/
   components/      React components (TitleBar, TabBar, PaneArea, TerminalView…)
-  hooks/           useTabs, useSession, paneTree
+  hooks/           useTabs, useSession, useUpdate, paneTree
   themes/          Built-in themes + theme host (whitelist)
   styles/          global.css
 scripts/           dev.js (launcher), generate-icons.js
 build/             icon.svg → icon.png / icon.ico
+latest.json        Update manifest read from the main branch (see Releasing)
 ```
 
 User data (session, themes, extensions) is stored in `%APPDATA%\terma` on Windows and `~/Library/Application Support/terma` on macOS. On macOS, shell integration (current-directory tracking via OSC 7) is injected through generated zsh/bash shims in that folder — your own shell config files are never modified.
