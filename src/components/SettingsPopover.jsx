@@ -8,6 +8,7 @@ import {
   Droplets,
   Gamepad2,
   Moon,
+  RefreshCw,
 } from 'lucide-react';
 import { isMac } from '../platform.js';
 
@@ -35,11 +36,14 @@ const INTEGRATION_STATUS_LABELS = {
 export default function SettingsPopover({
   settings,
   integrationStatus,
+  appVersion,
+  updateChecking,
   onChange,
   onClearSession,
   onOpenThemes,
   onPickBackground,
   onClearBackground,
+  onCheckUpdates,
   onClose,
 }) {
   const discord = settings.integrations?.discordRpc || {
@@ -220,7 +224,40 @@ export default function SettingsPopover({
           </button>
         </div>
 
-        <div className="settings-footer">Terma — v0.4.1</div>
+        <div className="settings-section">
+          <div className="settings-section-label">Application</div>
+
+          <label className="settings-row">
+            <span className="settings-row-text">
+              <RefreshCw size={14} strokeWidth={1.5} />
+              Vérifier les mises à jour au démarrage
+            </span>
+            <button
+              className={'toggle' + (settings.checkUpdates !== false ? ' on' : '')}
+              role="switch"
+              aria-checked={settings.checkUpdates !== false}
+              onClick={() =>
+                onChange({ ...settings, checkUpdates: settings.checkUpdates === false })
+              }
+            >
+              <span className="toggle-knob" />
+            </button>
+          </label>
+          <div className="settings-hint">
+            Au plus une fois par jour, Terma lit le numéro de la dernière version
+            publiée sur GitHub. Rien n’est envoyé et rien n’est installé : une mise à
+            jour se télécharge toujours à la main, depuis votre navigateur.
+          </div>
+
+          <button className="settings-action" onClick={onCheckUpdates} disabled={updateChecking}>
+            <RefreshCw size={14} strokeWidth={1.5} />
+            {updateChecking ? 'Vérification…' : 'Vérifier maintenant'}
+          </button>
+        </div>
+
+        {/* Version remontée par le main (app.getVersion) : une chaîne codée en dur
+            ici finit toujours par mentir après un bump de version. */}
+        <div className="settings-footer">Terma{appVersion ? ` — v${appVersion}` : ''}</div>
       </div>
     </div>
   );
