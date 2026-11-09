@@ -3,12 +3,25 @@ import { Minus, Square, Copy, X, Settings } from 'lucide-react';
 import { isMac } from '../platform.js';
 
 /**
+ * Logo Terma en un seul tracé (même dessin que build/icon.svg) : le carré
+ * arrondi, puis les 9 cellules du T. En fill-rule « evenodd », les cellules
+ * sont découpées dans le carré : le T laisse voir le fond de la barre et le
+ * logo s'adapte à n'importe quel thème avec une seule couleur (currentColor).
+ */
+const LOGO_PATH =
+  'M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124' +
+  'A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16Z' +
+  'M100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56z' +
+  'M292 100h56v56h-56zM356 100h56v56h-56z' +
+  'M228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z';
+
+/**
  * Barre de titre custom (frame: false côté Electron).
  * La zone est « draggable » sauf les éléments interactifs (no-drag via CSS).
  * Les onglets (TabBar) sont passés en `children` et vivent dans cette barre,
  * façon Chrome.
  *
- * À gauche : le logo Terma (monogramme « ❯_ ») qui ouvre le menu de
+ * À gauche : le logo Terma (T sur grille de caractères) qui ouvre le menu de
  * l'application — même rôle que le chevron de Windows Terminal.
  *
  * macOS : les « feux » natifs (titleBarStyle hiddenInset) occupent la gauche
@@ -48,40 +61,8 @@ export default function TitleBar({
             aria-haspopup="menu"
             onClick={openMenu}
           >
-            <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
-              <defs>
-                {/* Noir dominant → accent du thème dans le coin : le logo se
-                    re-teinte automatiquement pour chaque thème (intégré ou perso),
-                    via la variable --accent. Le chevron blanc reste lisible car il
-                    se trouve sur la zone sombre. */}
-                <linearGradient id="terma-logo-grad" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stopColor="#100d16" />
-                  <stop offset="0.55" stopColor="#100d16" />
-                  <stop offset="1" stopColor="var(--accent, #9a6bff)" />
-                </linearGradient>
-              </defs>
-              <rect
-                x="0.75"
-                y="0.75"
-                width="18.5"
-                height="18.5"
-                rx="5.5"
-                fill="url(#terma-logo-grad)"
-              />
-              <path
-                d="M5.6 6.6 L9.2 10 L5.6 13.4"
-                stroke="#ffffff"
-                strokeWidth="1.7"
-                fill="none"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-              <path
-                d="M11.2 13.4 H14.6"
-                stroke="#ffffff"
-                strokeWidth="1.7"
-                strokeLinecap="round"
-              />
+            <svg width="18" height="18" viewBox="0 0 512 512" aria-hidden="true">
+              <path d={LOGO_PATH} fill="currentColor" fillRule="evenodd" />
             </svg>
           </button>
           <span className="brand-name">Terma</span>
