@@ -57,7 +57,7 @@ The architecture enforces strict isolation: `contextIsolation: true`, `nodeInteg
 
 - **Node.js** 18+ and npm
 - **Windows**: native build tools (Visual Studio Build Tools + Python) to compile node-pty
-- **macOS**: Xcode Command Line Tools (`xcode-select --install`) to compile node-pty
+- **macOS**: Xcode Command Line Tools (`xcode-select --install`) to compile node-pty, and Xcode 26+ for `npm run dist` (its `actool` compiles the Liquid Glass icon `build/icon.icon`)
 
 ## Installation
 
@@ -79,7 +79,7 @@ A custom launcher (`scripts/dev.js`) starts Vite then Electron and guarantees a 
 
 ```bash
 npm run build      # build the renderer (Vite)
-npm run icons      # generate build/icon.png + build/icon.ico from build/icon.svg
+npm run icons      # generate build/icon.png + build/icon.ico from build/icon.svg (the macOS icon is build/icon.icon, editable in Icon Composer)
 npm run dist       # build the installer for the current OS in release/
 ```
 
