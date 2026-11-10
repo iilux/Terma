@@ -1096,3 +1096,292 @@ input[type='range'].slider::-webkit-slider-thumb:hover {
     transform: translateX(-50%) translateY(0);
   }
 }
+
+/* ========================= Réglage segmenté ============================== */
+.segmented {
+  display: flex;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+}
+.segmented-item {
+  flex: 1;
+  height: 26px;
+  border-radius: 6px;
+  font-size: 12px;
+  color: var(--text-dim);
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.segmented-item:hover {
+  color: var(--text);
+}
+.segmented-item.on {
+  background: var(--hover-strong);
+  color: var(--text-bright);
+}
+.segmented-item:focus-visible {
+  outline: 1px solid var(--accent);
+}
+.settings-hint.flush {
+  padding-left: 0;
+  margin-top: 6px;
+}
+
+/* ===================== Page d'accueil (au lancement) ===================== */
+/* Tout est dérivé des variables du thème actif (--panel, --text, --accent…)
+   et la page est un panneau en verre dépoli : lisible sur le fond uni comme
+   sur une image d'arrière-plan, en thème sombre comme en thème clair. */
+.start-page {
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  padding: 9vh 16px 40px;
+  /* léger halo de la couleur d'accent : donne de la profondeur au fond uni */
+  background:
+    radial-gradient(
+      ellipse 70% 55% at 50% 0%,
+      color-mix(in srgb, var(--accent) 10%, transparent),
+      transparent 70%
+    ),
+    var(--bg);
+}
+.app.has-bg .start-page {
+  background: transparent;
+}
+.start-inner {
+  width: 100%;
+  max-width: 560px;
+  padding: 22px 22px 18px;
+  border: 1px solid color-mix(in srgb, var(--border) 75%, transparent);
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--panel) 72%, transparent);
+  backdrop-filter: blur(28px) saturate(150%);
+  -webkit-backdrop-filter: blur(28px) saturate(150%);
+  box-shadow:
+    0 24px 60px rgba(0, 0, 0, 0.28),
+    inset 0 1px 0 color-mix(in srgb, var(--text-bright) 6%, transparent);
+  animation: start-in 0.22s ease;
+}
+/* sur une image, le verre laisse davantage passer le fond */
+.app.has-bg .start-inner {
+  background: color-mix(in srgb, var(--panel) 58%, transparent);
+}
+@keyframes start-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px) scale(0.99);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.start-title {
+  margin: 0 0 18px;
+  font-size: 16px;
+  font-weight: 500;
+  color: var(--text-bright);
+}
+.start-section + .start-section,
+.start-section + .start-new {
+  margin-top: 18px;
+}
+.start-label {
+  margin: 0 2px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+  color: var(--text-dim);
+}
+.start-label-meta {
+  text-transform: none;
+  letter-spacing: 0;
+  color: var(--text-dim);
+  opacity: 0.8;
+}
+.start-kbd {
+  margin-left: auto;
+  min-width: 22px;
+  padding: 1px 6px;
+  border: 1px solid color-mix(in srgb, var(--border) 80%, transparent);
+  border-radius: 5px;
+  background: var(--hover);
+  font-family: var(--ui-font);
+  font-size: 11px;
+  line-height: 16px;
+  text-align: center;
+  color: var(--text-dim);
+}
+.start-path {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-family: 'JetBrains Mono', 'Cascadia Code', 'Menlo', monospace;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* Carte « session précédente » : l'action principale */
+.start-resume {
+  display: block;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border-soft));
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--accent) 7%, var(--hover));
+  text-align: left;
+  transition: background 0.14s ease, border-color 0.14s ease;
+}
+.start-resume:hover {
+  background: color-mix(in srgb, var(--accent) 12%, var(--hover-strong));
+}
+.start-resume:focus-visible {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.start-resume-head {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  color: var(--text-bright);
+  font-size: 13px;
+}
+.start-resume-head > svg {
+  color: var(--accent);
+}
+.start-resume-list {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--border) 60%, transparent);
+}
+.start-resume-row {
+  display: grid;
+  grid-template-columns: minmax(70px, 150px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding-left: 24px;
+}
+.start-resume-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  color: var(--text);
+}
+.start-panes {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: 11px;
+  color: var(--text-dim);
+}
+.start-resume-more {
+  padding-left: 24px;
+  font-size: 11.5px;
+  color: var(--text-dim);
+}
+
+/* Dossiers récents */
+.start-recents {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.start-recent {
+  position: relative;
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background 0.12s ease;
+}
+.start-recent:hover {
+  background: var(--hover);
+}
+.start-recent-open {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 14px minmax(70px, 150px) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  height: 34px;
+  padding: 0 34px 0 10px;
+  border-radius: 8px;
+  text-align: left;
+  color: var(--text-dim);
+}
+.start-recent-open > svg {
+  color: var(--accent);
+  opacity: 0.85;
+}
+.start-recent-open:focus-visible {
+  outline: 1px solid var(--accent);
+}
+.start-recent-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-size: 12.5px;
+  color: var(--text-bright);
+}
+.start-recent-when {
+  font-size: 11px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+.start-recent-remove {
+  position: absolute;
+  right: 6px;
+  opacity: 0;
+  transition: opacity 0.12s ease;
+}
+.start-recent:hover .start-recent-remove,
+.start-recent-remove:focus-visible {
+  opacity: 1;
+}
+
+/* Nouveau terminal */
+.start-new {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin-top: 18px;
+  padding: 0 12px;
+  border: 1px solid color-mix(in srgb, var(--border) 70%, transparent);
+  border-radius: 10px;
+  background: var(--hover);
+  color: var(--text);
+  font-size: 12.5px;
+  transition: background 0.12s ease, color 0.12s ease;
+}
+.start-new:hover {
+  background: var(--hover-strong);
+  color: var(--text-bright);
+}
+.start-new:focus-visible {
+  border-color: var(--accent);
+}
+
+@media (max-width: 520px) {
+  .start-resume-row,
+  .start-recent-open {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .start-recent-open > svg,
+  .start-resume-row .start-path,
+  .start-recent-open .start-path {
+    display: none;
+  }
+}

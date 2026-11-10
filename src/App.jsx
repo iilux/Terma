@@ -27,6 +27,7 @@ import SettingsPopover from './components/SettingsPopover.jsx';
 import ThemesPanel from './components/ThemesPanel.jsx';
 import SearchBar from './components/SearchBar.jsx';
 import UpdateBanner from './components/UpdateBanner.jsx';
+import StartPage from './components/StartPage.jsx';
 import { useTabs, newId } from './hooks/useTabs.js';
 import { useSession } from './hooks/useSession.js';
 import { useUpdate } from './hooks/useUpdate.js';
@@ -36,8 +37,11 @@ import { normalizeTheme } from './themes/themeHost.js';
 import { DEFAULT_THEME } from './themes/builtins.js';
 import { platform, isMac, isMod, shortcut } from './platform.js';
 
+/** Au lancement : page d'accueil (choix), restauration directe, ou terminal vierge. */
+const STARTUP_MODES = ['startPage', 'restore', 'blank'];
+
 const DEFAULT_SETTINGS = {
-  restoreSession: true,
+  startupMode: 'startPage',
   // fermer la fenêtre replie Terma dans la barre système (shells toujours vivants)
   keepInBackground: true,
   themeId: DEFAULT_THEME.id,
@@ -68,6 +72,25 @@ function baseName(p) {
   const parts = cleaned.split(/[\\/]/);
   const last = parts[parts.length - 1];
   return last || cleaned || null;
+}
+
+/**
+ * Réglages lus depuis session.json. Migre l'ancien booléen `restoreSession`
+ * (désactivé → terminal vierge ; activé → page d'accueil, le nouveau défaut).
+ */
+function mergeSettings(savedSettings) {
+  const raw = savedSettings && typeof savedSettings === 'object' ? savedSettings : {};
+  const { restoreSession, ...rest } = raw;
+  const merged = { ...DEFAULT_SETTINGS, ...rest };
+  if (!STARTUP_MODES.includes(merged.startupMode)) {
+    merged.startupMode = restoreSession === false ? 'blank' : DEFAULT_SETTINGS.startupMode;
+  }
+  return merged;
+}
+
+/** Une sauvegarde contient-elle des onglets à restaurer ? */
+function hasSavedTabs(saved) {
+  return !!saved && Array.isArray(saved.tabs) && saved.tabs.length > 0;
 }
 
 /** Onglet vivant depuis une sauvegarde (session.json v1/v2 ou .termasession). */
@@ -129,6 +152,8 @@ export default function App() {
   const [bgImageUrl, setBgImageUrl] = useState(null);
   // statut des intégrations, remonté par le main ({ 'discord-rpc': 'connected', … })
   const [integrationStatus, setIntegrationStatus] = useState({});
+  // page d'accueil : { saved, recents, home } tant que l'utilisateur n'a pas choisi
+  const [startPage, setStartPage] = useState(null);
 
   const {
     themes,
@@ -145,9 +170,11 @@ export default function App() {
   const tabsRef = useRef(tabs);
   const activeIdRef = useRef(activeId);
   const settingsRef = useRef(settings);
+  const startPageRef = useRef(startPage);
   tabsRef.current = tabs;
   activeIdRef.current = activeId;
   settingsRef.current = settings;
+  startPageRef.current = startPage;
 
   const registerHandle = useCallback((id, h) => {
     handlesRef.current.set(id, h);
@@ -175,6 +202,32 @@ export default function App() {
   const patchSettings = useCallback((patch) => setSettings((s) => ({ ...s, ...patch })), []);
   const update = useUpdate({ booted, settings, patchSettings, showToast });
 
+  /* ------------------------- restauration de session ---------------------- */
+  const restoreSaved = useCallback(
+    (saved) => {
+      const version = Number(saved.version) || 1;
+      const restored = saved.tabs.map((t) => tabFromSaved(t, version));
+      setTabs(restored);
+      // les ids sont régénérés : on retrouve l'onglet actif par son index
+      const idx = saved.tabs.findIndex((t) => t.id === saved.activeId);
+      setActiveId(restored[idx >= 0 ? idx : 0].id);
+    },
+    [setTabs, setActiveId]
+  );
+
+  /**
+   * Sauvegarde immédiate. Tant que la page d'accueil est affichée, la session
+   * précédente est conservée telle quelle (seuls les réglages sont mis à jour)
+   * pour ne pas l'écraser avant que l'utilisateur ait choisi.
+   */
+  const persistNow = useCallback(() => {
+    const pending = startPageRef.current?.saved;
+    if (pending) {
+      return window.terma?.session.save({ ...pending, settings: settingsRef.current });
+    }
+    return save(tabsRef.current, activeIdRef.current, settingsRef.current);
+  }, [save]);
+
   /* ----------------------------- démarrage ------------------------------- */
   useEffect(() => {
     let cancelled = false;
@@ -191,7 +244,7 @@ export default function App() {
       const saved = await load();
       if (cancelled) return;
 
-      const mergedSettings = { ...DEFAULT_SETTINGS, ...(saved?.settings || {}) };
+      const mergedSettings = mergeSettings(saved?.settings);
       setSettings(mergedSettings);
 
       // image de fond : relue depuis son chemin (null si le fichier a disparu)
@@ -201,16 +254,29 @@ export default function App() {
         });
       }
 
-      const canRestore =
-        saved && Array.isArray(saved.tabs) && saved.tabs.length > 0 && mergedSettings.restoreSession;
+      const mode = mergedSettings.startupMode;
+      const hasSession = hasSavedTabs(saved);
 
-      if (canRestore) {
-        const version = Number(saved.version) || 1;
-        const restored = saved.tabs.map((t) => tabFromSaved(t, version));
-        setTabs(restored);
-        // les ids sont régénérés : on retrouve l'onglet actif par son index
-        const idx = saved.tabs.findIndex((t) => t.id === saved.activeId);
-        setActiveId(restored[idx >= 0 ? idx : 0].id);
+      if (mode === 'restore' && hasSession) {
+        restoreSaved(saved);
+      } else if (mode === 'startPage') {
+        let recents = { home: null, items: [] };
+        try {
+          recents = (await window.terma?.recents?.list()) || recents;
+        } catch (err) {
+          /* pas de récents : on montre quand même la session */
+        }
+        if (cancelled) return;
+        // rien à proposer (premier lancement) → directement un terminal
+        if (hasSession || recents.items.length > 0) {
+          setStartPage({
+            saved: hasSession ? saved : null,
+            recents: recents.items,
+            home: recents.home,
+          });
+        } else {
+          openTab();
+        }
       } else {
         openTab();
       }
@@ -248,10 +314,10 @@ export default function App() {
   useEffect(() => {
     if (!booted) return;
     const off = window.terma?.session?.onSaveRequest?.(() => {
-      save(tabsRef.current, activeIdRef.current, settingsRef.current);
+      persistNow();
     });
     return () => off?.();
-  }, [booted, save]);
+  }, [booted, persistNow]);
 
   // pousse l'état activé/config vers le main (qui active/désactive le module)
   useEffect(() => {
@@ -270,38 +336,48 @@ export default function App() {
   }, [booted, activeTitle]);
 
   /* --------------------- toujours au moins un onglet ---------------------- */
+  // (sauf sur la page d'accueil, qui attend le choix de l'utilisateur)
   useEffect(() => {
-    if (booted && tabs.length === 0) openTab();
-  }, [booted, tabs.length, openTab]);
+    if (booted && tabs.length === 0 && !startPage) openTab();
+  }, [booted, tabs.length, startPage, openTab]);
+
+  // un onglet ouvert par un autre chemin (raccourci, menu, import…) vaut choix
+  useEffect(() => {
+    if (startPage && tabs.length > 0) setStartPage(null);
+  }, [startPage, tabs.length]);
 
   /* ----------------------- sauvegarde automatique ------------------------- */
   // déclenchée par les changements d'onglets / actif / réglages
   useEffect(() => {
     if (!booted) return;
+    if (startPage?.saved) {
+      persistNow(); // ne touche qu'aux réglages (voir persistNow)
+      return;
+    }
     saveDebounced(tabs, activeId, settings);
-  }, [booted, tabs, activeId, settings, saveDebounced]);
+  }, [booted, tabs, activeId, settings, startPage, saveDebounced, persistNow]);
 
   // filet de sécurité : autosave périodique + à la fermeture
   useEffect(() => {
     if (!booted) return;
-    const interval = setInterval(() => {
-      save(tabsRef.current, activeIdRef.current, settingsRef.current);
-    }, 15000);
+    const interval = setInterval(persistNow, 15000);
     const onBeforeUnload = () => {
-      save(tabsRef.current, activeIdRef.current, settingsRef.current);
+      persistNow();
     };
     window.addEventListener('beforeunload', onBeforeUnload);
     return () => {
       clearInterval(interval);
       window.removeEventListener('beforeunload', onBeforeUnload);
     };
-  }, [booted, save]);
+  }, [booted, persistNow]);
 
   /* ------------------------------ handlers -------------------------------- */
 
   const handleCwd = useCallback(
     (tabId, paneId, cwd) => {
       setPaneCwd(tabId, paneId, cwd);
+      // alimente les « Dossiers récents » de la page d'accueil
+      window.terma?.recents?.add(cwd);
       // le titre suit le dossier courant du panneau actif (sauf renommage manuel)
       const tab = tabsRef.current.find((t) => t.id === tabId);
       if (tab && tab.activePaneId === paneId) {
@@ -324,6 +400,31 @@ export default function App() {
   );
 
   const handleNewTab = useCallback(() => openTab(), [openTab]);
+
+  /* --------------------------- page d'accueil ----------------------------- */
+  const handleStartResume = useCallback(() => {
+    const saved = startPageRef.current?.saved;
+    if (hasSavedTabs(saved)) restoreSaved(saved);
+    setStartPage(null);
+  }, [restoreSaved]);
+
+  const handleStartOpenFolder = useCallback(
+    (cwd) => {
+      openTab({ cwd, title: baseName(cwd) || 'Terminal' });
+      setStartPage(null);
+    },
+    [openTab]
+  );
+
+  const handleStartNew = useCallback(() => {
+    openTab();
+    setStartPage(null);
+  }, [openTab]);
+
+  const handleRemoveRecent = useCallback((cwd) => {
+    window.terma?.recents?.remove(cwd);
+    setStartPage((sp) => (sp ? { ...sp, recents: sp.recents.filter((r) => r.path !== cwd) } : sp));
+  }, []);
 
   /** Nouvel onglet dans le même dossier que le panneau actif de `tabId`. */
   const duplicateTab = useCallback(
@@ -410,6 +511,11 @@ export default function App() {
   );
 
   const handleClearSession = useCallback(async () => {
+    // la page d'accueil ne doit plus proposer (ni réécrire) la session effacée
+    setStartPage((sp) => {
+      if (!sp) return sp;
+      return sp.recents.length > 0 ? { ...sp, saved: null } : null;
+    });
     await clear();
     setSettingsOpen(false);
   }, [clear]);
@@ -810,7 +916,20 @@ export default function App() {
             unregisterHandle={unregisterHandle}
           />
         ))}
-        {tabs.length === 0 && <div className="empty-stack" />}
+        {tabs.length === 0 &&
+          (startPage ? (
+            <StartPage
+              saved={startPage.saved}
+              recents={startPage.recents}
+              home={startPage.home}
+              onResume={handleStartResume}
+              onOpenFolder={handleStartOpenFolder}
+              onRemoveRecent={handleRemoveRecent}
+              onNewTerminal={handleStartNew}
+            />
+          ) : (
+            <div className="empty-stack" />
+          ))}
 
         {searchOpen && (
           <SearchBar

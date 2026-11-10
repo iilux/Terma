@@ -18,7 +18,7 @@ Terma is a minimal, customizable terminal emulator: tabs, split panes, declarati
 - **Split panes** — horizontal or vertical splits, resizable binary tree, each pane runs its own shell.
 - **Themes** — 6 built-in themes (Terma, Clair, Nord, Dracula, Gruvbox Dark, Solarized Dark), built-in editor, import/export as `.termatheme`. The logo and UI re-tint themselves based on the active theme's accent color.
 - **Custom background** — optional image with adjustable blur (0–24 px) and terminal transparency.
-- **Persistent sessions** — tab and split layout is restored on startup; per-tab export/import as `.termasession`.
+- **Persistent sessions** — a start page offers to resume the previous session (tabs, splits, folders) or reopen a recent folder; startup can also restore directly or open a blank terminal. Per-tab export/import as `.termasession`.
 - **Search** in the scrollback buffer (`Ctrl+Shift+F`), clickable links, copy/paste.
 - **WebGL rendering** via xterm.js for smooth scrolling.
 - **Integrations (opt-in)** — optional modules, all disabled by default. First one: Discord Rich Presence (see below).
