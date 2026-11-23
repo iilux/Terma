@@ -19,16 +19,8 @@
   <header class="titlebar">
     <a class="brand" href="#top" aria-label="Terma — back to top">
       <svg class="brand-mark" viewBox="0 0 512 512" aria-hidden="true">
-        <defs>
-          <linearGradient id="lg" x1="0" y1="0" x2="1" y2="1">
-            <stop offset="0" stop-color="#100d16" />
-            <stop offset="0.62" stop-color="#191230" />
-            <stop offset="1" stop-color="#9a6bff" />
-          </linearGradient>
-        </defs>
-        <rect x="16" y="16" width="480" height="480" rx="120" fill="url(#lg)" />
-        <path d="M 141 167 L 233 256 L 141 345" stroke="#fff" stroke-width="50" fill="none" stroke-linecap="round" stroke-linejoin="round" />
-        <path d="M 285 345 H 373" stroke="#fff" stroke-width="50" stroke-linecap="round" />
+        <!-- Logo Terma : T sur grille de caractères, découpé dans le carré (evenodd) -->
+        <path d="M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16ZM100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56zM292 100h56v56h-56zM356 100h56v56h-56zM228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z" fill="currentColor" fill-rule="evenodd" />
       </svg>
       <span class="brand-name">terma</span>
     </a>
@@ -85,7 +77,7 @@
         <!-- Hero terminal: the session types itself -->
         <div class="term-window hero-term" id="hero-term">
           <div class="tw-titlebar">
-            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-logo" aria-hidden="true"><svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em"><path d="M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16ZM100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56zM292 100h56v56h-56zM356 100h56v56h-56zM228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z" fill="currentColor" fill-rule="evenodd" /></svg></span>
             <span class="tw-tab tw-tab-active">powershell</span>
             <span class="tw-tab">wsl</span>
             <span class="tw-spacer"></span>
@@ -115,7 +107,7 @@
 
         <div class="term-window split-demo" id="split-demo">
           <div class="tw-titlebar">
-            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-logo" aria-hidden="true"><svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em"><path d="M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16ZM100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56zM292 100h56v56h-56zM356 100h56v56h-56zM228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z" fill="currentColor" fill-rule="evenodd" /></svg></span>
             <span class="tw-tab tw-tab-active">dev</span>
             <span class="tw-spacer"></span>
             <span class="tw-controls" aria-hidden="true"><i>&#x2500;</i><i>&#x25A1;</i><i class="tw-x">&#x2715;</i></span>
@@ -159,7 +151,7 @@ pane #3
           <h2 data-scramble>Six built-in themes.<br />Or yours.</h2>
           <p class="sec-sub">
             Themes are declarative&nbsp;: a built-in editor, a
-            <code>.termatheme</code> export, and the whole UI — logo included —
+            <code>.termatheme</code> export, and the whole UI
             re-tints itself to the active theme's accent. This page does too. Watch.
           </p>
           <div class="theme-meter">
@@ -172,7 +164,7 @@ pane #3
 
         <div class="term-window theme-demo" id="theme-demo">
           <div class="tw-titlebar">
-            <span class="tw-logo" aria-hidden="true">&#x276F;_</span>
+            <span class="tw-logo" aria-hidden="true"><svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em"><path d="M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16ZM100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56zM292 100h56v56h-56zM356 100h56v56h-56zM228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z" fill="currentColor" fill-rule="evenodd" /></svg></span>
             <span class="tw-tab tw-tab-active">~/projects/terma</span>
             <span class="tw-spacer"></span>
             <span class="tw-controls" aria-hidden="true"><i>&#x2500;</i><i>&#x25A1;</i><i class="tw-x">&#x2715;</i></span>
@@ -321,7 +313,7 @@ pane #3
 
   <footer class="footer">
     <div class="container footer-inner">
-      <span class="footer-brand"><span class="c-accent">&#x276F;_</span> terma</span>
+      <span class="footer-brand"><span aria-hidden="true"><svg viewBox="0 0 512 512" width="1em" height="1em" style="vertical-align:-0.125em"><path d="M124 16H388A108 108 0 0 1 496 124V388A108 108 0 0 1 388 496H124A108 108 0 0 1 16 388V124A108 108 0 0 1 124 16ZM100 100h56v56h-56zM164 100h56v56h-56zM228 100h56v56h-56zM292 100h56v56h-56zM356 100h56v56h-56zM228 164h56v56h-56zM228 228h56v56h-56zM228 292h56v56h-56zM228 356h56v56h-56z" fill="currentColor" fill-rule="evenodd" /></svg></span> terma</span>
       <span class="footer-note">MIT &middot; &copy; 2026 iilux &middot; handmade — no template was harmed</span>
       <a href="https://github.com/iilux/Terma" target="_blank" rel="noopener">github</a>
     </div>

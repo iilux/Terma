@@ -170,7 +170,9 @@ button:focus {
   -webkit-app-region: drag;
 }
 
-/* Logo « ❯_ » : monogramme SVG cliquable qui ouvre le menu de l'app */
+/* Logo Terma (T sur grille de caractères), cliquable, ouvre le menu de l'app.
+   Monochrome : il prend la couleur du texte du thème (carré clair sur les
+   thèmes sombres, foncé sur les thèmes clairs), le T est découpé dedans. */
 .brand-logo {
   width: 26px;
   height: 26px;
@@ -178,12 +180,12 @@ button:focus {
   align-items: center;
   justify-content: center;
   border-radius: 7px;
+  color: var(--text-bright);
   -webkit-app-region: no-drag;
   transition: background 0.12s ease, transform 0.12s ease;
 }
 .brand-logo svg {
   display: block;
-  filter: drop-shadow(0 0 6px rgba(77, 141, 255, 0.35));
 }
 .brand-logo:hover {
   background: var(--hover);

@@ -43,8 +43,11 @@ mac:
       arch:
         - arm64
   category: public.app-category.developer-tools
-  # electron-builder convertit le PNG 512px en .icns automatiquement.
-  icon: build/icon.png
+  # Icône Icon Composer (Liquid Glass, macOS 26+) : fond anthracite et T en
+  # verre. electron-builder la compile avec actool (Xcode 26+ requis) en
+  # Assets.car + un .icns de secours pour les macOS plus anciens.
+  # Le dessin reste celui de build/icon.svg (même grille 5 × 5).
+  icon: build/icon.icon
   # Arch toujours visible dans le nom du fichier : sans ça le DMG Intel
   # s'appelle juste « Terma-x.y.z.dmg » et se confond avec l'arm64.
   artifactName: ${productName}-${version}-${arch}.${ext}
