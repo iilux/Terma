@@ -66,6 +66,13 @@ contextBridge.exposeInMainWorld('terma', {
     importTab: () => ipcRenderer.invoke('session:importTab'),
   },
 
+  recents: {
+    // dossiers récents (page d'accueil) — { home, items: [{ path, at }] }
+    list: () => ipcRenderer.invoke('recents:list'),
+    add: (cwd) => ipcRenderer.send('recents:add', cwd),
+    remove: (cwd) => ipcRenderer.invoke('recents:remove', cwd),
+  },
+
   themes: {
     list: () => ipcRenderer.invoke('themes:list'),
     save: (fileName, data) => ipcRenderer.invoke('themes:save', { fileName, data }),

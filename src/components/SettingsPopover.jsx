@@ -27,6 +27,25 @@ const INTEGRATION_STATUS_LABELS = {
   unavailable: 'Discord introuvable — vérifie qu’il est lancé',
 };
 
+/** Choix « Au démarrage » (settings.startupMode). */
+const STARTUP_OPTIONS = [
+  {
+    id: 'startPage',
+    label: 'Accueil',
+    hint: 'Une page propose de reprendre la session ou d’ouvrir un dossier récent.',
+  },
+  {
+    id: 'restore',
+    label: 'Restaurer',
+    hint: 'Les onglets de la dernière session se rouvrent directement.',
+  },
+  {
+    id: 'blank',
+    label: 'Vierge',
+    hint: 'Un nouveau terminal dans le dossier personnel.',
+  },
+];
+
 /**
  * Réglages essentiels de la session (le panneau complet arrive en Phase 6).
  * Pour l'instant : thèmes, image d'arrière-plan (optionnelle, flou réglable),
@@ -176,22 +195,28 @@ export default function SettingsPopover({
         <div className="settings-section">
           <div className="settings-section-label">Session</div>
 
-          <label className="settings-row">
+          <div className="settings-row">
             <span className="settings-row-text">
               <RotateCcw size={14} strokeWidth={1.5} />
-              Restaurer la session au démarrage
+              Au démarrage
             </span>
-            <button
-              className={'toggle' + (settings.restoreSession ? ' on' : '')}
-              role="switch"
-              aria-checked={settings.restoreSession}
-              onClick={() =>
-                onChange({ ...settings, restoreSession: !settings.restoreSession })
-              }
-            >
-              <span className="toggle-knob" />
-            </button>
-          </label>
+          </div>
+          <div className="segmented" role="radiogroup" aria-label="Au démarrage">
+            {STARTUP_OPTIONS.map((opt) => (
+              <button
+                key={opt.id}
+                role="radio"
+                aria-checked={settings.startupMode === opt.id}
+                className={'segmented-item' + (settings.startupMode === opt.id ? ' on' : '')}
+                onClick={() => onChange({ ...settings, startupMode: opt.id })}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+          <div className="settings-hint flush">
+            {STARTUP_OPTIONS.find((o) => o.id === settings.startupMode)?.hint}
+          </div>
 
           <label className="settings-row">
             <span className="settings-row-text">

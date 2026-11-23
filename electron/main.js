@@ -3,6 +3,7 @@
 const { app, BrowserWindow, ipcMain, Menu, Tray, nativeImage, clipboard, shell, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { PtyManager } = require('./pty-manager');
 const { IntegrationManager } = require('./integrations');
 const { checkForUpdate } = require('./updater');
@@ -32,6 +33,7 @@ if (!app.requestSingleInstanceLock()) {
 
 const userData = () => app.getPath('userData');
 const sessionFile = () => path.join(userData(), 'session.json');
+const recentsFile = () => path.join(userData(), 'recents.json');
 const themesDir = () => path.join(userData(), 'themes');
 
 /**
@@ -399,6 +401,86 @@ ipcMain.handle('session:clear', () => {
   return true;
 });
 
+/* ------------------------ IPC : dossiers récents ------------------------- */
+// Liste MRU des dossiers visités (alimentée par les cwd OSC 7), affichée sur
+// la page d'accueil. Fichier séparé de session.json : elle survit à
+// « Effacer la session enregistrée ».
+const RECENTS_MAX = 12;
+let recentsCache = null;
+let recentsWriteTimer = null;
+
+function readRecents() {
+  if (recentsCache) return recentsCache;
+  try {
+    const data = JSON.parse(fs.readFileSync(recentsFile(), 'utf8'));
+    recentsCache = (Array.isArray(data?.items) ? data.items : [])
+      .filter((it) => it && typeof it.path === 'string' && path.isAbsolute(it.path))
+      .map((it) => ({ path: it.path, at: Number(it.at) || 0 }))
+      .slice(0, RECENTS_MAX);
+  } catch (err) {
+    recentsCache = []; // pas encore de fichier
+  }
+  return recentsCache;
+}
+
+/** Écriture regroupée : un `cd` en rafale ne réécrit le fichier qu'une fois. */
+function scheduleRecentsWrite() {
+  if (recentsWriteTimer) clearTimeout(recentsWriteTimer);
+  recentsWriteTimer = setTimeout(flushRecents, 1000);
+}
+function flushRecents() {
+  if (recentsWriteTimer) clearTimeout(recentsWriteTimer);
+  recentsWriteTimer = null;
+  if (!recentsCache) return;
+  try {
+    fs.writeFileSync(recentsFile(), JSON.stringify({ items: recentsCache }, null, 2), 'utf8');
+  } catch (err) {
+    console.error('[recents] échec sauvegarde:', err);
+  }
+}
+
+/** Même dossier ? (insensible à la casse sur Windows / macOS par défaut). */
+function samePath(a, b) {
+  const norm = (p) => path.resolve(p).replace(/[\\/]+$/, '');
+  return process.platform === 'linux' ? norm(a) === norm(b) : norm(a).toLowerCase() === norm(b).toLowerCase();
+}
+
+ipcMain.handle('recents:list', () => {
+  const home = os.homedir();
+  // un dossier supprimé / un disque débranché disparaît simplement de la liste
+  const items = readRecents().filter((it) => {
+    try {
+      return fs.statSync(it.path).isDirectory();
+    } catch (err) {
+      return false;
+    }
+  });
+  return { home, items };
+});
+
+ipcMain.on('recents:add', (_e, cwd) => {
+  if (typeof cwd !== 'string' || !cwd || cwd.length > 4096 || !path.isAbsolute(cwd)) return;
+  // le dossier personnel a déjà son bouton « Nouveau terminal »
+  if (samePath(cwd, os.homedir())) return;
+  const list = readRecents();
+  if (list[0] && samePath(list[0].path, cwd)) {
+    list[0].at = Date.now();
+  } else {
+    recentsCache = [{ path: cwd, at: Date.now() }, ...list.filter((it) => !samePath(it.path, cwd))].slice(
+      0,
+      RECENTS_MAX
+    );
+  }
+  scheduleRecentsWrite();
+});
+
+ipcMain.handle('recents:remove', (_e, target) => {
+  if (typeof target !== 'string') return false;
+  recentsCache = readRecents().filter((it) => !samePath(it.path, target));
+  flushRecents();
+  return true;
+});
+
 /* ------------------- IPC : export/import d'onglet (.termasession) -------- */
 ipcMain.handle('session:exportTab', async (_e, { payload, suggestedName }) => {
   if (!mainWindow) return false;
@@ -670,6 +752,7 @@ app.on('window-all-closed', () => {
 app.on('before-quit', () => {
   // quit système (arrêt de session, installeur…) : ne pas intercepter le close
   isQuitting = true;
+  flushRecents();
   ptyManager?.killAll();
   integrations?.disposeAll();
   tray?.destroy();
